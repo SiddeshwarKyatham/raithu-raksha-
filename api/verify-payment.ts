@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 import crypto from 'crypto';
-import { pool } from './db';
+import { pool } from './db.js';
 
 interface ExtendedRequest extends IncomingMessage {
   query: Record<string, string | string[]>;
