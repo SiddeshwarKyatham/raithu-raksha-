@@ -2,16 +2,32 @@ import { useParams, Link } from "react-router";
 import { ShieldCheck, MapPin, Sprout, CheckCircle2, Heart, Share2, AlertTriangle, QrCode } from "lucide-react";
 import { ImageWithFallback } from "../components/figma/ImageWithFallback";
 import { motion } from "motion/react";
-import { useState } from "react";
-import { getFarmerById, donateToFarmer } from "../utils/db";
+import { useState, useEffect } from "react";
+import { getFarmerById, donateToFarmer, Farmer } from "../utils/db";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../components/ui/dialog";
 
+const loadRazorpayScript = () => {
+  return new Promise((resolve) => {
+    if ((window as any).Razorpay) {
+      resolve(true);
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+};
+
 export function FarmerStory() {
   const { id } = useParams();
   const farmerId = Number(id);
-  const [farmer, setFarmer] = useState(() => getFarmerById(farmerId));
+  const [farmer, setFarmer] = useState<Farmer | undefined>(undefined);
+  const [loading, setLoading] = useState(true);
   const [isDonating, setIsDonating] = useState(false);
   const [donationStep, setDonationStep] = useState(1); // 1: Select Amount, 2: Payment, 3: Processing, 4: Success
   const [donationAmount, setDonationAmount] = useState("1000");
@@ -22,11 +38,34 @@ export function FarmerStory() {
   const [cardNumber, setCardNumber] = useState("");
   const [cardExpiry, setCardExpiry] = useState("");
   const [cardCvv, setCardCvv] = useState("");
+  const [mockOrderId, setMockOrderId] = useState("");
+
+  useEffect(() => {
+    setLoading(true);
+    getFarmerById(farmerId)
+      .then(data => {
+        setFarmer(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setLoading(false);
+      });
+  }, [farmerId]);
 
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href);
     toast.success("Story link copied to clipboard!");
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="text-sm font-semibold text-muted-foreground">Loading farmer profile...</p>
+      </div>
+    );
+  }
 
   if (!farmer) {
     return (
@@ -42,6 +81,125 @@ export function FarmerStory() {
       </div>
     );
   }
+
+  const handlePaymentStart = async () => {
+    const amt = parseFloat(donationAmount);
+    if (isNaN(amt) || amt <= 0) {
+      toast.error("Please enter a valid donation amount.");
+      return;
+    }
+
+    setDonationStep(3); // Show processing screen
+
+    try {
+      // 1. Fetch order details from backend
+      const amountInPaise = Math.round(amt * 100);
+      const res = await fetch('/api/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: amountInPaise,
+          currency: 'INR',
+          receipt: `receipt_farmer_${farmer.id}_${Date.now()}`
+        })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to initialize payment order.");
+      }
+
+      const orderData = await res.json();
+
+      // 2. If order creation failed (mock fallback), show simulated checkout
+      //    Razorpay modal REQUIRES a valid order_id to work — without it, it crashes.
+      if (orderData.is_mock) {
+        setMockOrderId(orderData.order_id);
+        setDonationStep(5);
+        return;
+      }
+
+      // 3. Real order created successfully — load script and open Razorpay modal
+      const scriptLoaded = await loadRazorpayScript();
+      if (!scriptLoaded) {
+        toast.error("Razorpay Checkout script could not be loaded. Please check your internet connection.");
+        setMockOrderId(orderData.order_id);
+        setDonationStep(5);
+        return;
+      }
+
+      const rzpOptions = {
+        key: orderData.key_id,
+        amount: orderData.amount,
+        currency: orderData.currency || "INR",
+        name: "Rythu Raksha Foundation",
+        description: `Recovery Support for ${farmer.name}`,
+        order_id: orderData.order_id,
+        handler: async function (response: any) {
+          setDonationStep(3); // Verification in progress
+          try {
+            const verifyRes = await fetch('/api/verify-payment', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_signature: response.razorpay_signature,
+                farmerId: farmer.id,
+                amount: amt,
+                donorName: donorName || "Anonymous Supporter",
+                donorMessage: donorMessage
+              })
+            });
+
+            if (!verifyRes.ok) {
+              const verifyErr = await verifyRes.json().catch(() => ({}));
+              throw new Error(verifyErr.error || "Payment signature verification failed.");
+            }
+
+            const verifyResult = await verifyRes.json();
+            if (verifyResult.success) {
+              if (verifyResult.farmer) setFarmer(verifyResult.farmer);
+              setDonationStep(4);
+              confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
+            } else {
+              throw new Error("Verification response did not return success.");
+            }
+          } catch (dbErr: any) {
+            console.error(dbErr);
+            toast.error(dbErr.message || "Failed to verify transaction. Please contact support.");
+            setDonationStep(1);
+          }
+        },
+        prefill: {
+          name: donorName,
+          email: "donor@rythuraksha.org"
+        },
+        theme: {
+          color: "#1a3627"
+        },
+        modal: {
+          ondismiss: function() {
+            toast.error("Payment checkout dismissed.");
+            setDonationStep(1);
+          }
+        }
+      };
+
+      const rzp = new (window as any).Razorpay(rzpOptions);
+      rzp.on('payment.failed', function (response: any) {
+        console.error("Payment failed:", response.error);
+        toast.error(response.error?.description || "Payment failed. Please try again.");
+        setDonationStep(1);
+      });
+      rzp.open();
+
+    } catch (err: any) {
+      console.error("Order creation failed:", err);
+      toast.error(err.message || "Failed to initialize payment. Try again.");
+      setDonationStep(1);
+    }
+  };
 
   const progress = (farmer.raised / farmer.goal) * 100;
 
@@ -184,20 +342,6 @@ export function FarmerStory() {
                 </div>
               </div>
 
-              {/* Requirement Breakdown */}
-              <div className="bg-background rounded-xl p-4 border border-border space-y-3">
-                <h4 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground border-b border-border pb-2">Requirement Breakdown</h4>
-                {farmer.breakdown.map((item, idx) => (
-                  <div key={idx} className="flex justify-between text-sm">
-                    <span className="text-foreground">{item.item}</span>
-                    <span className="font-medium">₹{item.cost.toLocaleString()}</span>
-                  </div>
-                ))}
-                <div className="flex justify-between text-sm font-bold pt-2 border-t border-border">
-                  <span>Total Goal</span>
-                  <span>₹{farmer.goal.toLocaleString()}</span>
-                </div>
-              </div>
 
               {/* Actions */}
               <div className="flex flex-col gap-3 mt-2">
@@ -239,7 +383,7 @@ export function FarmerStory() {
           setDonationStep(1);
         }
       }}>
-        <DialogContent className="sm:max-w-md bg-card border border-border rounded-3xl p-6 relative overflow-hidden">
+        <DialogContent className="sm:max-w-md bg-card border border-border rounded-3xl p-6 relative">
           <DialogHeader>
             <DialogTitle className="font-poppins font-bold text-xl text-foreground">
               {donationStep === 4 ? "Support Successful!" : `Support ${farmer.name}`}
@@ -307,132 +451,15 @@ export function FarmerStory() {
 
               <button
                 type="button"
-                onClick={() => {
-                  const amt = parseFloat(donationAmount);
-                  if (isNaN(amt) || amt <= 0) {
-                    toast.error("Please enter a valid donation amount.");
-                    return;
-                  }
-                  setDonationStep(2);
-                }}
+                onClick={handlePaymentStart}
                 className="w-full bg-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm hover:bg-primary/90 transition-colors mt-2"
               >
-                Continue to Payment
+                Proceed to Pay
               </button>
             </div>
           )}
 
-          {donationStep === 2 && (
-            <div className="space-y-5 py-2">
-              <div className="flex border-b border-border">
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod("upi")}
-                  className={`flex-1 pb-2 font-poppins font-semibold text-xs border-b-2 transition-all ${
-                    paymentMethod === "upi" ? "border-primary text-primary" : "border-transparent text-muted-foreground"
-                  }`}
-                >
-                  UPI Payment
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod("card")}
-                  className={`flex-1 pb-2 font-poppins font-semibold text-xs border-b-2 transition-all ${
-                    paymentMethod === "card" ? "border-primary text-primary" : "border-transparent text-muted-foreground"
-                  }`}
-                >
-                  Credit/Debit Card
-                </button>
-              </div>
 
-              {paymentMethod === "upi" ? (
-                <div className="space-y-4">
-                  <div className="bg-muted/30 border border-border rounded-xl p-4 flex flex-col items-center justify-center text-center">
-                    <QrCode className="w-32 h-32 text-primary mb-2" />
-                    <p className="text-[11px] text-muted-foreground">Scan QR code using GPay, PhonePe, or Paytm</p>
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold text-foreground mb-1 block">Or Enter UPI ID (VPA)</label>
-                    <input
-                      type="text"
-                      placeholder="username@okaxis"
-                      value={vpa}
-                      onChange={(e) => setVpa(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-sm"
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-xs font-bold text-foreground mb-1 block">Card Number</label>
-                    <input
-                      type="text"
-                      placeholder="4111 2222 3333 4444"
-                      value={cardNumber}
-                      onChange={(e) => setCardNumber(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-sm"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs font-bold text-foreground mb-1 block">Expiry Date</label>
-                      <input
-                        type="text"
-                        placeholder="MM/YY"
-                        value={cardExpiry}
-                        onChange={(e) => setCardExpiry(e.target.value)}
-                        className="w-full px-4 py-2.5 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-sm text-center"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-bold text-foreground mb-1 block">CVV</label>
-                      <input
-                        type="password"
-                        placeholder="123"
-                        maxLength={3}
-                        value={cardCvv}
-                        onChange={(e) => setCardCvv(e.target.value)}
-                        className="w-full px-4 py-2.5 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-sm text-center"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setDonationStep(1)}
-                  className="flex-1 border border-border py-3 rounded-xl font-semibold text-xs hover:bg-muted/50 transition-colors"
-                >
-                  Back
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDonationStep(3);
-                    setTimeout(() => {
-                      const finalAmount = parseFloat(donationAmount);
-                      const updatedFarmer = donateToFarmer(farmer.id, finalAmount);
-                      if (updatedFarmer) {
-                        setFarmer(updatedFarmer);
-                      }
-                      setDonationStep(4);
-                      confetti({
-                        particleCount: 150,
-                        spread: 80,
-                        origin: { y: 0.6 }
-                      });
-                    }, 1500);
-                  }}
-                  className="flex-1 bg-primary text-primary-foreground py-3 rounded-xl font-semibold text-xs hover:bg-primary/90 transition-colors"
-                >
-                  Pay ₹{Number(donationAmount).toLocaleString()}
-                </button>
-              </div>
-            </div>
-          )}
 
           {donationStep === 3 && (
             <div className="py-10 flex flex-col items-center justify-center text-center space-y-4">
@@ -449,13 +476,32 @@ export function FarmerStory() {
               </div>
               <div>
                 <h4 className="font-poppins font-bold text-lg text-foreground">₹{Number(donationAmount).toLocaleString()} Received</h4>
-                <p className="text-sm text-muted-foreground mt-1 max-w-xs">
+                <p className="text-sm text-muted-foreground mt-1 max-w-xs mx-auto">
                   Thank you, <span className="font-semibold text-foreground">{donorName || "Anonymous Supporter"}</span>, for helping {farmer.name}! 
                 </p>
+              </div>
+
+              {/* Transaction Receipt Card */}
+              <div className="bg-muted/40 border border-border rounded-2xl p-4 w-full text-xs space-y-2 text-left">
+                <div className="flex justify-between border-b border-border/50 pb-2">
+                  <span className="text-muted-foreground font-medium">Receipt ID</span>
+                  <span className="font-mono text-foreground font-bold uppercase">RR-{Math.floor(100000 + Math.random() * 900000)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground font-medium">Beneficiary</span>
+                  <span className="text-foreground font-semibold">{farmer.name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground font-medium">Payment Gateway</span>
+                  <span className="text-foreground font-semibold uppercase">Razorpay Secure</span>
+                </div>
                 {donorMessage && (
-                  <p className="text-xs italic text-primary bg-primary/5 p-3 rounded-lg mt-3 border border-primary/10">
-                    "{donorMessage}"
-                  </p>
+                  <div className="border-t border-border/50 pt-2 mt-2">
+                    <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider block mb-1">Your Message</span>
+                    <p className="italic text-primary bg-primary/5 p-2.5 rounded-lg border border-primary/10">
+                      "{donorMessage}"
+                    </p>
+                  </div>
                 )}
               </div>
               <button
@@ -474,6 +520,72 @@ export function FarmerStory() {
               >
                 Done
               </button>
+            </div>
+          )}
+
+          {donationStep === 5 && (
+            <div className="space-y-4 py-4 text-center">
+              <div className="flex items-center justify-center gap-2 border-b border-border pb-3 mb-2">
+                <span className="bg-blue-600 text-white font-extrabold text-sm px-2.5 py-0.5 rounded tracking-wide font-sans font-black">Razorpay</span>
+                <span className="text-[10px] bg-amber-500/10 text-amber-600 font-bold px-2 py-0.5 rounded border border-amber-500/25 uppercase">Sandbox Test Mode</span>
+              </div>
+              
+              <div className="bg-muted/30 border border-border p-4 rounded-xl text-left text-xs space-y-2.5">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Order ID:</span>
+                  <span className="font-mono text-foreground font-bold">{mockOrderId}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Amount:</span>
+                  <span className="text-foreground font-bold">₹{Number(donationAmount).toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Payee:</span>
+                  <span className="text-foreground font-medium">Rythu Raksha Foundation</span>
+                </div>
+              </div>
+
+              <p className="text-[11px] text-muted-foreground leading-normal">
+                This is a local simulated transaction. Click <strong>Simulate Success</strong> to complete checkout or <strong>Simulate Fail</strong> to cancel.
+              </p>
+
+              <div className="flex gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    toast.error("Payment simulation cancelled.");
+                    setDonationStep(1);
+                  }}
+                  className="flex-1 border border-border py-2.5 rounded-xl font-semibold text-xs hover:bg-muted/50 transition-colors"
+                >
+                  Simulate Fail
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const payId = `pay_mock_${Math.random().toString(36).substring(2, 11)}`;
+                    setDonationStep(3); // Processing DB record
+                    try {
+                      const updatedFarmer = await donateToFarmer(
+                        farmer.id,
+                        parseFloat(donationAmount),
+                        donorName || "Anonymous Supporter",
+                        donorMessage || `Paid via Razorpay Simulated (${payId})`
+                      );
+                      if (updatedFarmer) setFarmer(updatedFarmer);
+                      setDonationStep(4); // Success Receipt
+                      confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
+                    } catch (err) {
+                      console.error(err);
+                      toast.error("Transaction simulated successfully, but database failed to update.");
+                      setDonationStep(1);
+                    }
+                  }}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl font-semibold text-xs transition-colors"
+                >
+                  Simulate Success
+                </button>
+              </div>
             </div>
           )}
         </DialogContent>

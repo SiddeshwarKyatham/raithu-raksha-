@@ -2,14 +2,63 @@ import { Search, ShieldCheck } from "lucide-react";
 import { Link } from "react-router";
 import { ImageWithFallback } from "../components/figma/ImageWithFallback";
 import { motion } from "motion/react";
-import { useState } from "react";
-import { getFarmers } from "../utils/db";
+import { useState, useEffect } from "react";
+import { getFarmers, Farmer } from "../utils/db";
+
+const districts = [
+  "Adilabad",
+  "Bhadradri Kothagudem",
+  "Hanamkonda",
+  "Hyderabad",
+  "Jagtial",
+  "Jangaon",
+  "Jayashankar Bhupalpally",
+  "Jogulamba Gadwal",
+  "Kamareddy",
+  "Karimnagar",
+  "Khammam",
+  "Kumuram Bheem Asifabad",
+  "Mahabubabad",
+  "Mahabubnagar",
+  "Mancherial",
+  "Medak",
+  "Medchal-Malkajgiri",
+  "Mulugu",
+  "Nagarkurnool",
+  "Nalgonda",
+  "Narayanpet",
+  "Nirmal",
+  "Nizamabad",
+  "Peddapalli",
+  "Rajanna Sircilla",
+  "Rangareddy",
+  "Sangareddy",
+  "Siddipet",
+  "Suryapet",
+  "Vikarabad",
+  "Wanaparthy",
+  "Warangal",
+  "Yadadri Bhuvanagiri"
+];
 
 export function Farmers() {
-  const allFarmers = getFarmers();
+  const [allFarmers, setAllFarmers] = useState<Farmer[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [district, setDistrict] = useState("");
   const [disaster, setDisaster] = useState("");
+
+  useEffect(() => {
+    getFarmers()
+      .then(data => {
+        setAllFarmers(data.filter(f => f.verified));
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setLoading(false);
+      });
+  }, []);
 
   const filteredFarmers = allFarmers.filter(farmer => {
     const matchesSearch = 
@@ -53,12 +102,9 @@ export function Farmers() {
               className="px-4 py-3 bg-card border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary min-w-[140px]"
             >
               <option value="">All Districts</option>
-              <option value="warangal">Warangal</option>
-              <option value="nalgonda">Nalgonda</option>
-              <option value="khammam">Khammam</option>
-              <option value="mahabubnagar">Mahabubnagar</option>
-              <option value="siddipet">Siddipet</option>
-              <option value="karimnagar">Karimnagar</option>
+              {districts.map(d => (
+                <option key={d} value={d.toLowerCase()}>{d}</option>
+              ))}
             </select>
             <select 
               value={disaster}
@@ -81,7 +127,20 @@ export function Farmers() {
         </div>
 
         {/* Farmers Grid */}
-        {filteredFarmers.length === 0 ? (
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {[1, 2, 3, 4].map((n) => (
+              <div key={n} className="bg-card border border-border rounded-2xl overflow-hidden h-[380px] animate-pulse p-5 flex flex-col justify-between">
+                <div className="space-y-4">
+                  <div className="h-44 bg-muted rounded-xl w-full" />
+                  <div className="h-5 bg-muted rounded w-3/4" />
+                  <div className="h-4 bg-muted rounded w-1/2" />
+                </div>
+                <div className="h-10 bg-muted rounded-xl w-full mt-4" />
+              </div>
+            ))}
+          </div>
+        ) : filteredFarmers.length === 0 ? (
           <div className="text-center py-16 bg-card border border-border rounded-2xl">
             <p className="text-muted-foreground text-lg">No farmers match your search criteria.</p>
             <button onClick={() => { setSearch(""); setDistrict(""); setDisaster(""); }} className="mt-4 text-sm font-semibold text-primary hover:underline">

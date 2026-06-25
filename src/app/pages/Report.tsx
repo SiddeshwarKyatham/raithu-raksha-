@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router";
 import { ArrowLeft, ArrowRight, CheckCircle2, ShieldCheck, MapPin, Sprout, AlertTriangle, Coins } from "lucide-react";
-import { addFarmer } from "../utils/db";
+import { addFarmer, uploadToCloudinary } from "../utils/db";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -10,6 +10,7 @@ export function Report() {
   const location = useLocation();
   const prefilled = location.state || {};
   const [step, setStep] = useState(prefilled.farmerName || prefilled.reporterPhone ? 2 : 1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Form State
   const [formData, setFormData] = useState({
@@ -24,6 +25,8 @@ export function Report() {
     district: "Warangal",
     village: "",
     landArea: "",
+    farmerPhone: "",
+    locationLink: "",
     
     // Step 3: Crisis Details
     crop: "Cotton",
@@ -31,14 +34,52 @@ export function Report() {
     damage: "80",
     story: "",
     
-    // Step 4: Requirements & Budget
-    seedsCost: "",
-    fertilizerCost: "",
-    laborCost: "",
+    // Step 4: Evidence Proofs
+    videoProof: "",
+    videoFileName: "",
+    imageProofs: [] as string[],
+    imageFileNames: [] as string[],
+    
+    // Step 5: Financial Needs
+    recoveryGoal: "",
     image: ""
   });
 
-  const districts = ["Warangal", "Nalgonda", "Khammam", "Mahabubnagar", "Siddipet", "Karimnagar"];
+  const districts = [
+    "Adilabad",
+    "Bhadradri Kothagudem",
+    "Hanamkonda",
+    "Hyderabad",
+    "Jagtial",
+    "Jangaon",
+    "Jayashankar Bhupalpally",
+    "Jogulamba Gadwal",
+    "Kamareddy",
+    "Karimnagar",
+    "Khammam",
+    "Kumuram Bheem Asifabad",
+    "Mahabubabad",
+    "Mahabubnagar",
+    "Mancherial",
+    "Medak",
+    "Medchal-Malkajgiri",
+    "Mulugu",
+    "Nagarkurnool",
+    "Nalgonda",
+    "Narayanpet",
+    "Nirmal",
+    "Nizamabad",
+    "Peddapalli",
+    "Rajanna Sircilla",
+    "Rangareddy",
+    "Sangareddy",
+    "Siddipet",
+    "Suryapet",
+    "Vikarabad",
+    "Wanaparthy",
+    "Warangal",
+    "Yadadri Bhuvanagiri"
+  ];
   const disasters = [
     "Pest Attack",
     "Severe Drought",
@@ -50,7 +91,105 @@ export function Report() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => {
+      const nextData = { ...prev, [name]: value };
+      
+      // Auto-fill farmer details if relationship is 'Self' (I am the farmer)
+      if (name === "relationship" && value === "Self") {
+        nextData.farmerName = nextData.reporterName;
+        nextData.farmerPhone = nextData.reporterPhone;
+      } else if (nextData.relationship === "Self") {
+        if (name === "reporterName") {
+          nextData.farmerName = value;
+        }
+        if (name === "reporterPhone") {
+          nextData.farmerPhone = value;
+        }
+      }
+      
+      return nextData;
+    });
+  };
+
+  const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 20 * 1024 * 1024) {
+        toast.error("Video file is too large! Maximum limit is 20MB.");
+        return;
+      }
+
+      // Check duration of video proof (30 to 45 seconds walkthrough with farmer and field)
+      const videoElement = document.createElement("video");
+      videoElement.preload = "metadata";
+      videoElement.src = URL.createObjectURL(file);
+      videoElement.onloadedmetadata = () => {
+        URL.revokeObjectURL(videoElement.src);
+        if (videoElement.duration < 30 || videoElement.duration > 45) {
+          toast.error("Video must be between 30 and 45 seconds long! Please upload a brief walkthrough showing both the farmer and the field.");
+        } else {
+          const reader = new FileReader();
+          reader.onload = () => {
+            setFormData(prev => ({
+              ...prev,
+              videoFileName: file.name,
+              videoProof: reader.result as string
+            }));
+            toast.success("Walkthrough video validated (30-45s duration) and attached!");
+          };
+          reader.onerror = () => {
+            toast.error("Failed to read video file.");
+          };
+          reader.readAsDataURL(file);
+        }
+      };
+      videoElement.onerror = () => {
+        // Fallback for file parsing issues
+        const reader = new FileReader();
+        reader.onload = () => {
+          setFormData(prev => ({
+            ...prev,
+            videoFileName: file.name,
+            videoProof: reader.result as string
+          }));
+          toast.success("Walkthrough video attached successfully!");
+        };
+        reader.onerror = () => {
+          toast.error("Failed to read video file.");
+        };
+        reader.readAsDataURL(file);
+      };
+    }
+  };
+
+  const handleImagesUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const readPromises = Array.from(files).map(file => {
+        return new Promise<{ name: string, dataUrl: string }>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            resolve({ name: file.name, dataUrl: reader.result as string });
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      });
+
+      Promise.all(readPromises)
+        .then(results => {
+          setFormData(prev => ({
+            ...prev,
+            imageProofs: [...prev.imageProofs, ...results.map(r => r.dataUrl)],
+            imageFileNames: [...prev.imageFileNames, ...results.map(r => r.name)]
+          }));
+          toast.success(`Attached ${results.length} crop damage photo(s)!`);
+        })
+        .catch(err => {
+          console.error(err);
+          toast.error("Failed to read image files.");
+        });
+    }
   };
 
   // Validation
@@ -63,18 +202,20 @@ export function Report() {
         formData.farmerName.trim() !== "" &&
         formData.farmerAge.trim() !== "" &&
         formData.village.trim() !== "" &&
-        formData.landArea.trim() !== ""
+        formData.landArea.trim() !== "" &&
+        formData.farmerPhone.trim().length >= 10 &&
+        formData.locationLink.trim() !== ""
       );
     }
     if (step === 3) {
-      return formData.story.trim().length >= 20;
+      return true;
     }
     if (step === 4) {
-      return (
-        formData.seedsCost.trim() !== "" &&
-        formData.fertilizerCost.trim() !== "" &&
-        formData.laborCost.trim() !== ""
-      );
+      // Require at least one proof
+      return formData.imageProofs.length > 0 || formData.videoProof !== "";
+    }
+    if (step === 5) {
+      return formData.recoveryGoal.trim() !== "" && parseFloat(formData.recoveryGoal) > 0;
     }
     return false;
   };
@@ -93,51 +234,78 @@ export function Report() {
     window.scrollTo(0, 0);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isStepValid()) {
       toast.error("Please fill out all required fields correctly.");
       return;
     }
 
-    const seeds = parseFloat(formData.seedsCost) || 0;
-    const ferts = parseFloat(formData.fertilizerCost) || 0;
-    const labor = parseFloat(formData.laborCost) || 0;
-    const totalGoal = seeds + ferts + labor;
-
-    const fallbackImages: Record<string, string> = {
-      "Cotton": "https://images.unsplash.com/photo-1608876537010-ac56d8731614?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxpbmRpYW4lMjBmYXJtZXIlMjBwb3J0cmFpdHxlbnwxfHx8fDE3ODE1NDcyODd8MA&ixlib=rb-4.1.0&q=80&w=1080",
-      "Paddy": "https://images.unsplash.com/photo-1666545743813-e692fb2b2430?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxkcnklMjBmYXJtJTIwbGFuZCUyMGluZGlhfGVufDF8fHx8MTc4MTU0NzI4OHww&ixlib=rb-4.1.0&q=80&w=1080",
-      "Chilli": "https://images.unsplash.com/photo-1780342286779-1032160016be?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxpbmRpYW4lMjB2aWxsYWdlJTIwY29tbXVuaXR5fGVufDF8fHx8MTc4MTU0NzI4OHww&ixlib=rb-4.1.0&q=80&w=1080",
-      "default": "https://images.unsplash.com/photo-1681226298721-88cdb4096e5f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxpbmRpYW4lMjBhZ3JpY3VsdHVyZSUyMGZpZWxkc3xlbnwxfHx8fDE3ODE1NDcyODh8MA&ixlib=rb-4.1.0&q=80&w=1080"
-    };
-
-    const imageSelected = fallbackImages[formData.crop] || fallbackImages.default;
+    setIsSubmitting(true);
+    const toastId = toast.loading("Uploading evidence to Cloudinary...");
 
     try {
-      addFarmer({
+      // 1. Upload video if it exists as base64
+      let uploadedVideoUrl = "";
+      if (formData.videoProof && formData.videoProof.startsWith("data:")) {
+        toast.loading("Uploading walkthrough video...", { id: toastId });
+        uploadedVideoUrl = await uploadToCloudinary(formData.videoProof, 'video');
+      } else {
+        uploadedVideoUrl = formData.videoProof;
+      }
+
+      // 2. Upload images
+      const uploadedImageUrls: string[] = [];
+      for (let i = 0; i < formData.imageProofs.length; i++) {
+        const img = formData.imageProofs[i];
+        if (img.startsWith("data:")) {
+          toast.loading(`Uploading image proof ${i + 1} of ${formData.imageProofs.length}...`, { id: toastId });
+          const url = await uploadToCloudinary(img, 'image');
+          uploadedImageUrls.push(url);
+        } else {
+          uploadedImageUrls.push(img);
+        }
+      }
+
+      // 3. Select main image (use first uploaded proof, or fallback)
+      const fallbackImages: Record<string, string> = {
+        "Cotton": "https://images.unsplash.com/photo-1608876537010-ac56d8731614?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxpbmRpYW4lMjBmYXJtZXIlMjBwb3J0cmFpdHxlbnwxfHx8fDE3ODE1NDcyODd8MA&ixlib=rb-4.1.0&q=80&w=1080",
+        "Paddy": "https://images.unsplash.com/photo-1666545743813-e692fb2b2430?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxkcnklMjBmYXJtJTIwbGFuZCUyMGluZGlhfGVufDF8fHx8MTc4MTU0NzI4OHww&ixlib=rb-4.1.0&q=80&w=1080",
+        "Chilli": "https://images.unsplash.com/photo-1780342286779-1032160016be?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxpbmRpYW4lMjB2aWxsYWdlJTIwY29tbXVuaXR5fGVufDF8fHx8MTc4MTU0NzI4OHww&ixlib=rb-4.1.0&q=80&w=1080",
+        "default": "https://images.unsplash.com/photo-1681226298721-88cdb4096e5f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxpbmRpYW4lMjBhZ3JpY3VsdHVyZSUyMGZpZWxkc3xlbnwxfHx8fDE3ODE1NDcyODh8MA&ixlib=rb-4.1.0&q=80&w=1080"
+      };
+
+      const mainImage = uploadedImageUrls.length > 0 ? uploadedImageUrls[0] : (fallbackImages[formData.crop] || fallbackImages.default);
+
+      toast.loading("Saving farmer profile...", { id: toastId });
+
+      await addFarmer({
         name: formData.farmerName,
         age: parseInt(formData.farmerAge) || 40,
         district: formData.district,
         village: formData.village,
         crop: formData.crop,
         disaster: `${formData.disaster} (${formData.damage}% Damage)`,
-        goal: totalGoal,
+        goal: 0,
         landArea: `${formData.landArea} Acres`,
         damage: `${formData.damage}%`,
-        image: imageSelected,
-        story: formData.story,
-        breakdown: [
-          { item: "High-Quality Seeds", cost: seeds },
-          { item: "Pest-resistant Fertilizers & Tools", cost: ferts },
-          { item: "Labor & Land Preparation", cost: labor }
-        ]
+        image: mainImage,
+        story: "Pending verification and story addition by NGO admin.",
+        breakdown: [],
+        farmerPhone: formData.farmerPhone,
+        requestedAmount: parseFloat(formData.recoveryGoal) || 0,
+        videoProof: uploadedVideoUrl || null,
+        imageProofs: uploadedImageUrls,
+        locationLink: formData.locationLink
       });
 
-      toast.success("Farmer profile submitted successfully for verification!");
+      toast.success("Farmer profile submitted successfully for verification!", { id: toastId });
       navigate("/farmers");
-    } catch (err) {
-      toast.error("Failed to submit report. Please try again.");
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to submit report. Please try again.", { id: toastId });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -146,7 +314,8 @@ export function Report() {
     { num: 1, name: "Reporter Details" },
     { num: 2, name: "Farmer Details" },
     { num: 3, name: "Damage Report" },
-    { num: 4, name: "Financial Needs" }
+    { num: 4, name: "Evidence Uploads" },
+    { num: 5, name: "Financial Needs" }
   ];
 
   return (
@@ -332,6 +501,31 @@ export function Report() {
                         required 
                       />
                     </div>
+                    <div>
+                      <label className="text-sm font-semibold text-foreground mb-1.5 block">Farmer's Phone Number <span className="text-destructive">*</span></label>
+                      <input 
+                        type="tel" 
+                        name="farmerPhone"
+                        value={formData.farmerPhone}
+                        onChange={handleInputChange}
+                        placeholder="Enter 10-digit mobile number" 
+                        className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-sm" 
+                        required 
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="text-sm font-semibold text-foreground mb-1.5 block">Field Location / Google Maps Link <span className="text-destructive">*</span></label>
+                      <input 
+                        type="text" 
+                        name="locationLink"
+                        value={formData.locationLink}
+                        onChange={handleInputChange}
+                        placeholder="Enter Google Maps location URL or GPS coordinates (e.g. https://maps.google.com/?q=...)" 
+                        className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-sm" 
+                        required 
+                      />
+                      <p className="text-[10px] text-muted-foreground mt-1">Provide the exact location of the farm field (including farmer and field details) for NGO verification.</p>
+                    </div>
                   </div>
                 </motion.div>
               )}
@@ -398,26 +592,12 @@ export function Report() {
                         <span>100% (Total Failure)</span>
                       </div>
                     </div>
-                    <div className="md:col-span-2">
-                      <label className="text-sm font-semibold text-foreground mb-1.5 block">Detailed Story / Situation <span className="text-destructive">*</span></label>
-                      <textarea 
-                        name="story"
-                        value={formData.story}
-                        onChange={handleInputChange}
-                        placeholder="Please write at least 20 characters explaining the circumstances, financial burden, and family situation..." 
-                        rows={5}
-                        className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-sm leading-relaxed" 
-                        required 
-                      />
-                      <p className="text-[11px] text-muted-foreground mt-1">
-                        Tip: Include information about family dependency, existing loans, and crop cycle impact.
-                      </p>
-                    </div>
+                    {/* Detailed story will be added by the NGO admin after verification */}
                   </div>
                 </motion.div>
               )}
 
-              {/* STEP 4: BUDGET & FINANCIAL NEEDS */}
+              {/* STEP 4: EVIDENCE UPLOADS (VIDEO & IMAGES) */}
               {step === 4 && (
                 <motion.div
                   key="step4"
@@ -427,77 +607,106 @@ export function Report() {
                   className="space-y-6"
                 >
                   <div>
+                    <h3 className="text-xl font-bold font-poppins text-foreground mb-1">Upload Evidence & Proofs</h3>
+                    <p className="text-sm text-muted-foreground">Attach video and image proofs to verify the crop damage condition.</p>
+                  </div>
+
+                  <div className="space-y-6">
+                    {/* Video Proof */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-foreground mb-1.5 block">Video Proof (Farmer & Field Walkthrough) <span className="text-destructive">*</span></label>
+                      <div className="border-2 border-dashed border-border rounded-2xl p-6 flex flex-col items-center justify-center bg-muted/20 relative group hover:border-primary transition-colors">
+                        <input 
+                          type="file" 
+                          accept="video/*" 
+                          onChange={handleVideoUpload}
+                          className="absolute inset-0 opacity-0 cursor-pointer z-20" 
+                        />
+                        <AlertTriangle className="w-8 h-8 text-muted-foreground group-hover:text-primary mb-2 transition-colors" />
+                        <span className="text-xs font-semibold text-foreground/80">Drag & drop or click to upload walkthrough video</span>
+                        <span className="text-[10px] text-muted-foreground mt-1">MP4, MOV, or WebM (30 to 45 seconds duration, Max 20MB)</span>
+                      </div>
+                      {formData.videoFileName && (
+                        <div className="space-y-2 mt-2">
+                          <div className="bg-primary/5 border border-primary/10 rounded-xl p-3.5 flex items-center justify-between text-xs text-primary font-medium">
+                            <span className="truncate max-w-[250px]">{formData.videoFileName}</span>
+                            <span className="text-[10px] bg-primary/10 px-2 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider">Ready to review</span>
+                          </div>
+                          {formData.videoProof && (
+                            <div className="rounded-2xl overflow-hidden border border-border aspect-video bg-black max-w-md mx-auto relative shadow-inner mt-2">
+                              <video 
+                                src={formData.videoProof}
+                                controls
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Image Proofs */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-foreground mb-1.5 block">Image Proofs (Close-up damage photos) <span className="text-destructive">*</span></label>
+                      <div className="border-2 border-dashed border-border rounded-2xl p-6 flex flex-col items-center justify-center bg-muted/20 relative group hover:border-primary transition-colors">
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          multiple 
+                          onChange={handleImagesUpload}
+                          className="absolute inset-0 opacity-0 cursor-pointer z-20" 
+                        />
+                        <MapPin className="w-8 h-8 text-muted-foreground group-hover:text-primary mb-2 transition-colors" />
+                        <span className="text-xs font-semibold text-foreground/80">Drag & drop or click to upload crop damage photos</span>
+                        <span className="text-[10px] text-muted-foreground mt-1">JPEG, PNG, or WEBP (Select one or more)</span>
+                      </div>
+                      
+                      {formData.imageProofs.length > 0 && (
+                        <div className="grid grid-cols-3 gap-3 mt-4">
+                          {formData.imageProofs.map((img, idx) => (
+                            <div key={idx} className="relative h-20 rounded-xl overflow-hidden border border-border bg-muted">
+                              <img src={img} className="w-full h-full object-cover" alt={`Proof ${idx + 1}`} />
+                              <div className="absolute inset-x-0 bottom-0 bg-black/60 p-1 text-[8px] text-white truncate text-center">
+                                {formData.imageFileNames[idx]}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* STEP 5: BUDGET & FINANCIAL NEEDS */}
+              {step === 5 && (
+                <motion.div
+                  key="step5"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  className="space-y-6"
+                >
+                  <div>
                     <h3 className="text-xl font-bold font-poppins text-foreground mb-1">Financial Requirements</h3>
-                    <p className="text-sm text-muted-foreground">Estimate recovery costs to purchase seeds and inputs for the next cycle.</p>
+                    <p className="text-sm text-muted-foreground">Specify the total recovery amount requested for this case.</p>
                   </div>
 
                   <div className="space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      <div>
-                        <label className="text-xs font-semibold text-foreground mb-1 block">High-Quality Seeds Cost (₹) <span className="text-destructive">*</span></label>
-                        <input 
-                          type="number" 
-                          name="seedsCost"
-                          value={formData.seedsCost}
-                          onChange={handleInputChange}
-                          placeholder="e.g. 12000" 
-                          className="w-full px-3 py-2.5 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-xs" 
-                          required 
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs font-semibold text-foreground mb-1 block">Fertilizers & Pesticides (₹) <span className="text-destructive">*</span></label>
-                        <input 
-                          type="number" 
-                          name="fertilizerCost"
-                          value={formData.fertilizerCost}
-                          onChange={handleInputChange}
-                          placeholder="e.g. 15000" 
-                          className="w-full px-3 py-2.5 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-xs" 
-                          required 
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs font-semibold text-foreground mb-1 block">Labor & Land Prep (₹) <span className="text-destructive">*</span></label>
-                        <input 
-                          type="number" 
-                          name="laborCost"
-                          value={formData.laborCost}
-                          onChange={handleInputChange}
-                          placeholder="e.g. 13000" 
-                          className="w-full px-3 py-2.5 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-xs" 
-                          required 
-                        />
-                      </div>
-                    </div>
-
-                    {/* Breakdown Summary Box */}
-                    <div className="bg-muted/30 border border-border rounded-xl p-5 mt-6">
-                      <h4 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground border-b border-border pb-2 mb-3">Live Estimate Summary</h4>
-                      <div className="space-y-2.5 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">High-Quality Seeds</span>
-                          <span className="font-medium text-foreground">₹{parseFloat(formData.seedsCost || "0").toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Pest-resistant Fertilizers & Tools</span>
-                          <span className="font-medium text-foreground">₹{parseFloat(formData.fertilizerCost || "0").toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Labor & Land Prep</span>
-                          <span className="font-medium text-foreground">₹{parseFloat(formData.laborCost || "0").toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between text-base font-bold pt-3 border-t border-border mt-3">
-                          <span className="flex items-center gap-1.5"><Coins className="w-5 h-5 text-secondary" /> Total Recovery Goal</span>
-                          <span className="text-primary">
-                            ₹{(
-                              (parseFloat(formData.seedsCost) || 0) + 
-                              (parseFloat(formData.fertilizerCost) || 0) + 
-                              (parseFloat(formData.laborCost) || 0)
-                            ).toLocaleString()}
-                          </span>
-                        </div>
-                      </div>
+                    <div>
+                      <label className="text-sm font-semibold text-foreground mb-1.5 block">Requested Recovery Funds (₹) <span className="text-destructive">*</span></label>
+                      <input 
+                        type="number" 
+                        name="recoveryGoal"
+                        value={formData.recoveryGoal}
+                        onChange={handleInputChange}
+                        placeholder="e.g. 50000" 
+                        className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-sm" 
+                        required 
+                      />
+                      <p className="text-[11px] text-muted-foreground mt-1.5">
+                        Enter the total estimated budget required for seed procurement, fertilizer, labor, and soil replenishment. Note: NGOs will review and set the final goal amount after verification.
+                      </p>
                     </div>
 
                     <div className="bg-primary/5 rounded-xl p-4 border border-primary/10 flex items-start gap-3 mt-4 text-xs text-muted-foreground">
@@ -517,7 +726,8 @@ export function Report() {
                 <button 
                   type="button" 
                   onClick={prevStep}
-                  className="px-6 py-3 border border-border rounded-xl text-sm font-semibold hover:bg-muted/50 transition-colors flex items-center gap-2"
+                  disabled={isSubmitting}
+                  className="px-6 py-3 border border-border rounded-xl text-sm font-semibold hover:bg-muted/50 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <ArrowLeft className="w-4 h-4" /> Back
                 </button>
@@ -525,20 +735,22 @@ export function Report() {
                 <div />
               )}
 
-              {step < 4 ? (
+              {step < 5 ? (
                 <button 
                   type="button" 
                   onClick={nextStep}
-                  className="bg-primary text-primary-foreground px-6 py-3 rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all flex items-center gap-2"
+                  disabled={isSubmitting}
+                  className="bg-primary text-primary-foreground px-6 py-3 rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Next <ArrowRight className="w-4 h-4" />
                 </button>
               ) : (
                 <button 
                   type="submit"
-                  className="bg-secondary text-secondary-foreground px-8 py-3 rounded-xl text-sm font-bold hover:bg-secondary/90 transition-transform active:scale-95 shadow-md flex items-center gap-2"
+                  disabled={isSubmitting}
+                  className="bg-secondary text-secondary-foreground px-8 py-3 rounded-xl text-sm font-bold hover:bg-secondary/90 transition-transform active:scale-95 shadow-md flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Submit Profile <CheckCircle2 className="w-4 h-4" />
+                  {isSubmitting ? "Uploading..." : "Submit Profile"} <CheckCircle2 className="w-4 h-4" />
                 </button>
               )}
             </div>

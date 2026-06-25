@@ -186,3 +186,30 @@
     line-height: 1.5;
   }
 }
+
+/* Custom Infinite Carousel Slider */
+@keyframes slide-slow {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-slide-slow {
+  display: flex;
+  width: max-content;
+  animation: slide-slow 45s linear infinite;
+}
+
+.animate-slide-slow:hover {
+  animation-play-state: paused;
+}
+
+/* Prevent Radix UI scroll/pointer locks from getting stuck on page transitions */
+body {
+  pointer-events: auto !important;
+  overflow-y: auto !important;
+}
+

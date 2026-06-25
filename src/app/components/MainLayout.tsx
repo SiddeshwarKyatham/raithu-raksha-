@@ -21,12 +21,11 @@ export function MainLayout() {
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
             <Link to="/farmers" className="text-foreground hover:text-primary transition-colors">Farmers</Link>
             <Link to="/report" className="text-foreground hover:text-primary transition-colors">Report a Farmer</Link>
-            <Link to="#" className="text-foreground hover:text-primary transition-colors">Impact</Link>
-            <Link to="#" className="text-foreground hover:text-primary transition-colors">About</Link>
+            <Link to="/impact" className="text-foreground hover:text-primary transition-colors">Impact</Link>
+            <Link to="/about" className="text-foreground hover:text-primary transition-colors">About</Link>
           </nav>
 
           <div className="hidden md:flex items-center gap-4">
-            <Link to="#" className="text-sm font-medium text-foreground hover:text-primary transition-colors">Login</Link>
             <Link to="/report" className="bg-primary text-primary-foreground px-4 py-2 rounded-full text-sm font-medium hover:bg-primary/90 transition-colors">
               Report a Farmer
             </Link>
@@ -45,9 +44,8 @@ export function MainLayout() {
           <div className="md:hidden bg-background border-b border-border p-4 flex flex-col gap-4">
             <Link to="/farmers" className="text-foreground font-medium" onClick={() => setIsMobileMenuOpen(false)}>Farmers</Link>
             <Link to="/report" className="text-foreground font-medium" onClick={() => setIsMobileMenuOpen(false)}>Report a Farmer</Link>
-            <Link to="#" className="text-foreground font-medium" onClick={() => setIsMobileMenuOpen(false)}>Impact</Link>
-            <Link to="#" className="text-foreground font-medium" onClick={() => setIsMobileMenuOpen(false)}>About</Link>
-            <Link to="#" className="text-foreground font-medium" onClick={() => setIsMobileMenuOpen(false)}>Login</Link>
+            <Link to="/impact" className="text-foreground font-medium" onClick={() => setIsMobileMenuOpen(false)}>Impact</Link>
+            <Link to="/about" className="text-foreground font-medium" onClick={() => setIsMobileMenuOpen(false)}>About</Link>
             <Link to="/report" className="bg-primary text-primary-foreground px-4 py-2 rounded-full text-sm font-medium text-center" onClick={() => setIsMobileMenuOpen(false)}>
               Report a Farmer
             </Link>
@@ -76,16 +74,16 @@ export function MainLayout() {
             <h4 className="font-poppins font-semibold mb-4">Explore</h4>
             <ul className="space-y-2 text-sm text-primary-foreground/80">
               <li><Link to="/farmers" className="hover:text-white transition-colors">Farmers</Link></li>
-              <li><Link to="#" className="hover:text-white transition-colors">Success Stories</Link></li>
-              <li><Link to="#" className="hover:text-white transition-colors">Impact</Link></li>
+              <li><Link to="/impact" className="hover:text-white transition-colors">Success Stories</Link></li>
+              <li><Link to="/impact" className="hover:text-white transition-colors">Impact</Link></li>
             </ul>
           </div>
           <div>
             <h4 className="font-poppins font-semibold mb-4">Organization</h4>
             <ul className="space-y-2 text-sm text-primary-foreground/80">
-              <li><Link to="#" className="hover:text-white transition-colors">About Us</Link></li>
-              <li><Link to="#" className="hover:text-white transition-colors">Verification Process</Link></li>
-              <li><Link to="#" className="hover:text-white transition-colors">Contact</Link></li>
+              <li><Link to="/about" className="hover:text-white transition-colors">About Us</Link></li>
+              <li><Link to="/about" className="hover:text-white transition-colors">Verification Process</Link></li>
+              <li><Link to="/contact" className="hover:text-white transition-colors">Contact</Link></li>
             </ul>
           </div>
           <div>

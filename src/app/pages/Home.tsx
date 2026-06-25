@@ -2,27 +2,46 @@ import { motion } from "motion/react";
 import { ArrowRight, ShieldCheck, HeartHandshake, Sprout, Smartphone, QrCode, MessageCircle } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { ImageWithFallback } from "../components/figma/ImageWithFallback";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { getFarmers } from "../utils/db";
 
 export function Home() {
   const navigate = useNavigate();
   const [quickName, setQuickName] = useState("");
   const [quickPhone, setQuickPhone] = useState("");
+  const [farmers, setFarmers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isNavigating, setIsNavigating] = useState(false);
 
   const handleQuickReport = (e: React.FormEvent) => {
     e.preventDefault();
     navigate("/report", { state: { farmerName: quickName, reporterPhone: quickPhone } });
   };
 
-  const allFarmers = getFarmers();
-  let urgentFarmers = allFarmers.filter(f => f.raised < f.goal);
+  useEffect(() => {
+    getFarmers()
+      .then(data => {
+        setFarmers(data.filter(f => f.verified));
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setLoading(false);
+      });
+  }, []);
+
+  let urgentFarmers = farmers.filter(f => f.raised < f.goal);
   if (urgentFarmers.length === 0) {
-    urgentFarmers = allFarmers.slice(0, 3);
+    urgentFarmers = farmers.slice(0, 4);
   } else {
     urgentFarmers = urgentFarmers
-      .sort((a, b) => (a.raised / a.goal) - (b.raised / b.goal))
-      .slice(0, 3);
+      .sort((a, b) => (a.raised / a.goal) - (b.raised / b.goal));
+  }
+
+  // Duplicate items for the infinite slider
+  let slideItems = [...urgentFarmers];
+  while (slideItems.length < 8 && slideItems.length > 0) {
+    slideItems = [...slideItems, ...urgentFarmers];
   }
 
   const tickerItems = [
@@ -73,9 +92,14 @@ export function Home() {
             <Link to="/farmers" className="bg-secondary text-secondary-foreground px-8 py-4 rounded-full text-base font-semibold hover:bg-secondary/90 transition-colors w-full sm:w-auto text-center flex items-center justify-center gap-2">
               Explore Farmers <ArrowRight className="w-5 h-5" />
             </Link>
-            <button className="bg-white/10 backdrop-blur-md border border-white/20 text-white px-8 py-4 rounded-full text-base font-medium hover:bg-white/20 transition-colors w-full sm:w-auto">
+            <a 
+              href="https://wa.me/919876543210?text=Hi%20Rythu%20Raksha%20team%2C%20I%20would%20like%20to%20report%20a%20distress%20case%20for%20a%20farmer.%20Here%20are%20the%20details%3A" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="bg-white/10 backdrop-blur-md border border-white/20 text-white px-8 py-4 rounded-full text-base font-medium hover:bg-white/20 transition-colors w-full sm:w-auto text-center flex items-center justify-center"
+            >
               Report via WhatsApp
-            </button>
+            </a>
           </motion.div>
         </div>
 
@@ -97,69 +121,101 @@ export function Home() {
       </section>
 
       {/* Featured Farmers */}
-      <section className="py-24 bg-muted/30">
+      <section className="py-24 bg-muted/30 overflow-hidden">
         <div className="container mx-auto px-4 md:px-6">
           <div className="flex justify-between items-end mb-12">
             <div className="max-w-2xl">
               <h2 className="text-3xl md:text-4xl font-poppins font-bold text-foreground mb-4">Urgent Cases</h2>
-              <p className="text-muted-foreground text-lg">Verified farmers needing immediate support to begin recovery.</p>
+              <p className="text-muted-foreground text-lg">Verified farmers needing immediate support to begin recovery. Hover to pause.</p>
             </div>
             <Link to="/farmers" className="hidden md:flex items-center gap-2 text-primary font-medium hover:underline">
               View all <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {urgentFarmers.map((farmer) => {
-              const progress = (farmer.raised / farmer.goal) * 100;
-              return (
-                <div key={farmer.id} className="group bg-card rounded-2xl overflow-hidden border border-border shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between">
-                  <div>
-                    <div className="relative h-64 overflow-hidden">
-                      <ImageWithFallback 
-                        src={farmer.image} 
-                        alt={farmer.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      />
-                      <div className="absolute top-4 left-4 bg-white/90 backdrop-blur text-primary text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1 shadow-sm">
-                        <ShieldCheck className="w-3 h-3 text-secondary" /> NGO Verified
-                      </div>
-                    </div>
-                    <div className="p-6">
-                      <div className="flex justify-between items-start mb-4">
-                        <div>
-                          <h3 className="text-xl font-poppins font-semibold text-foreground">{farmer.name}, {farmer.age}</h3>
-                          <p className="text-muted-foreground text-sm">{farmer.district} District • {farmer.crop}</p>
-                        </div>
-                        <div className="bg-destructive/10 text-destructive text-xs font-semibold px-2 py-1 rounded max-w-[120px] truncate">
-                          {farmer.disaster.split(" (")[0]}
-                        </div>
-                      </div>
-                      <p className="text-foreground/80 text-sm mb-6 line-clamp-2">
-                        {farmer.story}
-                      </p>
-                    </div>
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {[1, 2, 3].map((n) => (
+                <div key={n} className="bg-card border border-border rounded-2xl overflow-hidden h-96 animate-pulse p-6 flex flex-col justify-between">
+                  <div className="space-y-4">
+                    <div className="h-44 bg-muted rounded-xl w-full" />
+                    <div className="h-6 bg-muted rounded w-3/4" />
+                    <div className="h-4 bg-muted rounded w-1/2" />
                   </div>
-                  
-                  {/* Progress & Action */}
-                  <div className="px-6 pb-6 pt-0">
-                    <div className="mb-4 animate-pulse-none">
-                      <div className="flex justify-between text-xs font-semibold mb-1">
-                        <span className="text-primary font-bold">₹{farmer.raised.toLocaleString()} raised</span>
-                        <span className="text-muted-foreground">₹{farmer.goal.toLocaleString()} goal</span>
-                      </div>
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div className="bg-secondary h-2 rounded-full transition-all duration-500" style={{ width: `${progress}%` }}></div>
-                      </div>
-                    </div>
-                    <Link to={`/farmers/${farmer.id}`} className="block w-full text-center bg-primary text-primary-foreground py-3 rounded-xl font-medium hover:bg-primary/90 transition-colors">
-                      Read Story & Support
-                    </Link>
-                  </div>
+                  <div className="h-10 bg-muted rounded-xl w-full mt-4" />
                 </div>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          ) : urgentFarmers.length === 0 ? (
+            <div className="text-center py-10 text-muted-foreground text-sm bg-card border border-border rounded-2xl">
+              No urgent distress cases at the moment.
+            </div>
+          ) : (
+            <div className="relative w-full py-4 overflow-hidden">
+              {/* Fade gradients on edges */}
+              <div className="absolute inset-y-0 left-0 w-12 sm:w-24 bg-gradient-to-r from-[#fdfbf7] via-[#fdfbf7]/80 to-transparent z-10 pointer-events-none dark:from-black dark:via-black/80" />
+              <div className="absolute inset-y-0 right-0 w-12 sm:w-24 bg-gradient-to-l from-[#fdfbf7] via-[#fdfbf7]/80 to-transparent z-10 pointer-events-none dark:from-black dark:via-black/80" />
+              
+              <div 
+                className="animate-slide-slow flex gap-6 hover:[animation-play-state:paused] w-max px-4"
+                style={{ animationPlayState: isNavigating ? 'paused' : undefined }}
+              >
+                {slideItems.map((farmer, index) => {
+                  const progress = (farmer.raised / farmer.goal) * 100;
+                  return (
+                    <div key={`${farmer.id}-${index}`} className="group w-[300px] sm:w-[360px] bg-card rounded-2xl overflow-hidden border border-border shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between select-none">
+                      <div>
+                        <div className="relative h-56 overflow-hidden">
+                          <ImageWithFallback 
+                            src={farmer.image} 
+                            alt={farmer.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          />
+                          <div className="absolute top-4 left-4 bg-white/90 backdrop-blur text-primary text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1 shadow-sm">
+                            <ShieldCheck className="w-3 h-3 text-secondary" /> NGO Verified
+                          </div>
+                        </div>
+                        <div className="p-6">
+                          <div className="flex justify-between items-start mb-4">
+                            <div>
+                              <h3 className="text-lg font-poppins font-semibold text-foreground leading-tight">{farmer.name}, {farmer.age}</h3>
+                              <p className="text-muted-foreground text-xs mt-1">{farmer.district} District • {farmer.crop}</p>
+                            </div>
+                            <div className="bg-destructive/10 text-destructive text-[10px] font-semibold px-2 py-0.5 rounded max-w-[110px] truncate">
+                              {farmer.disaster.split(" (")[0]}
+                            </div>
+                          </div>
+                          <p className="text-foreground/80 text-xs line-clamp-2 leading-relaxed">
+                            {farmer.story}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {/* Progress & Action */}
+                      <div className="px-6 pb-6 pt-0">
+                        <div className="mb-4">
+                          <div className="flex justify-between text-xs font-semibold mb-1">
+                            <span className="text-primary font-bold">₹{farmer.raised.toLocaleString()} raised</span>
+                            <span className="text-muted-foreground">₹{farmer.goal.toLocaleString()} goal</span>
+                          </div>
+                          <div className="w-full bg-muted rounded-full h-1.5">
+                            <div className="bg-secondary h-1.5 rounded-full transition-all duration-500" style={{ width: `${progress}%` }}></div>
+                          </div>
+                        </div>
+                        <Link 
+                          to={`/farmers/${farmer.id}`} 
+                          onClick={() => setIsNavigating(true)}
+                          className="block w-full text-center bg-primary text-primary-foreground py-2.5 rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors"
+                        >
+                          Read Story & Support
+                        </Link>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           
           <div className="mt-8 md:hidden flex justify-center">
              <Link to="/farmers" className="flex items-center gap-2 text-primary font-medium border border-primary px-6 py-3 rounded-full hover:bg-primary hover:text-white transition-colors">
@@ -257,10 +313,15 @@ export function Home() {
                 <QrCode className="w-24 h-24 text-[#128C7E]" />
               </div>
               <h3 className="text-2xl font-poppins font-bold text-foreground mb-2 relative z-10">Report via WhatsApp</h3>
-              <p className="text-muted-foreground mb-8 max-w-sm relative z-10">Scan the QR code to instantly start a chat with our NGO team. Share photos, voice notes, and location directly.</p>
-              <button className="bg-[#25D366] text-white px-8 py-3.5 rounded-full font-bold hover:bg-[#128C7E] transition-colors flex items-center gap-2 shadow-lg shadow-[#25D366]/20 relative z-10">
+              <p className="text-muted-foreground mb-8 max-w-sm relative z-10">Directly message our NGO verification team on WhatsApp. Share photos, location, and crop damage details with us.</p>
+              <a 
+                href="https://wa.me/919876543210?text=Hi%20Rythu%20Raksha%20team%2C%20I%20would%20like%20to%20report%20a%20distress%20case%20for%20a%20farmer.%20Here%20are%20the%20details%3A" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="bg-[#25D366] text-white px-8 py-3.5 rounded-full font-bold hover:bg-[#128C7E] transition-colors flex items-center justify-center gap-2 shadow-lg shadow-[#25D366]/20 relative z-10 w-full sm:w-auto"
+              >
                 <MessageCircle className="w-5 h-5" /> Open WhatsApp
-              </button>
+              </a>
             </div>
 
             {/* Website Card */}
