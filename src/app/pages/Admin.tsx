@@ -655,14 +655,14 @@ export function Admin() {
                                         onClick={async () => {
                                           try {
                                             const res = await resendVerificationLink(farmer.id);
-                                            if (res.success) toast.success("Verification link successfully resent via WhatsApp!");
+                                            if (res.success) toast.success("Verification link successfully regenerated!");
                                           } catch (err: any) {
-                                            toast.error(err.message || "Failed to resend link.");
+                                            toast.error(err.message || "Failed to regenerate link.");
                                           }
                                         }}
                                         className="bg-[#1a3627] hover:bg-[#1a3627]/90 text-white font-bold text-xs px-4 py-2 rounded-xl transition-colors cursor-pointer"
                                       >
-                                        Resend WhatsApp
+                                        Regenerate Link
                                       </button>
                                     </div>
                                   </div>

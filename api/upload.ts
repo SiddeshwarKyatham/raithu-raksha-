@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'http';
-import cloudinary from './cloudinary.js';
+import cloudinary from '../api-lib/cloudinary.js';
 
 interface ExtendedRequest extends IncomingMessage {
   query: Record<string, string | string[]>;

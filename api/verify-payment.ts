@@ -1,8 +1,8 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 import crypto from 'crypto';
 import Razorpay from 'razorpay';
-import { pool } from './db.js';
-import { sendWhatsAppMessage, sendEmailReceipt } from './notification-helper.js';
+import { pool } from '../api-lib/db.js';
+import { sendWhatsAppMessage, sendEmailReceipt } from '../api-lib/notification-helper.js';
 
 interface ExtendedRequest extends IncomingMessage {
   query: Record<string, string | string[]>;

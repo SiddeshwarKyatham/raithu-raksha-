@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 import crypto from 'crypto';
-import { pool } from './db.js';
-import { sendWhatsAppMessage } from './notification-helper.js';
+import { pool } from '../api-lib/db.js';
+import { sendWhatsAppMessage } from '../api-lib/notification-helper.js';
 
 interface ExtendedRequest extends IncomingMessage {
   query: Record<string, string | string[]>;
@@ -61,12 +61,7 @@ export default async function handler(req: ExtendedRequest, res: ExtendedRespons
     const host = req.headers.host || 'localhost:5173';
     const verificationLink = `${protocol}://${host}/farmer/verify/${token}`;
 
-    if (farmer.farmer_phone) {
-      await sendWhatsAppMessage(farmer.farmer_phone, "farmer_verification", [farmer.name, verificationLink]);
-      res.status(200).json({ success: true, message: "Verification link successfully resent via WhatsApp." });
-    } else {
-      res.status(400).json({ error: "Farmer does not have a registered phone number." });
-    }
+    res.status(200).json({ success: true, message: "Verification link successfully regenerated." });
 
   } catch (error: any) {
     console.error("Error in resend-verification handler:", error);

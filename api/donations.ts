@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'http';
-import { pool } from './db.js';
+import { pool } from '../api-lib/db.js';
 
 interface ExtendedRequest extends IncomingMessage {
   query: Record<string, string | string[]>;

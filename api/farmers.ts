@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 import crypto from 'crypto';
-import { pool, initDB } from './db.js';
-import { sendWhatsAppMessage } from './notification-helper.js';
+import { pool, initDB } from '../api-lib/db.js';
+import { sendWhatsAppMessage } from '../api-lib/notification-helper.js';
 
 interface ExtendedRequest extends IncomingMessage {
   query: Record<string, string | string[]>;
