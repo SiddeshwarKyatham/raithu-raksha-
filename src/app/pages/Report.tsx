@@ -330,6 +330,29 @@ export function Report() {
           </p>
         </div>
 
+        {/* WhatsApp Report Option Banner */}
+        <div className="mb-8 p-4 bg-[#1a3627]/5 border border-[#1a3627]/10 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-full bg-[#1a3627]/10 flex items-center justify-center shrink-0 text-[#1a3627] text-lg">
+              💬
+            </div>
+            <div>
+              <h4 className="font-poppins font-bold text-sm text-[#1a3627]">Quick Report via WhatsApp</h4>
+              <p className="text-muted-foreground text-xs leading-relaxed mt-0.5">
+                Prefer to report details directly over chat? Message us on WhatsApp to submit files and case information.
+              </p>
+            </div>
+          </div>
+          <a 
+            href="https://wa.me/917032691531?text=Hello,%20I%20want%20to%20report%20a%20distress%20farmer%20case%20on%20Rythu%20Raksha." 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="bg-[#1a3627] hover:bg-[#1a3627]/90 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all shadow-sm shrink-0 whitespace-nowrap w-full sm:w-auto text-center font-poppins"
+          >
+            Message Us
+          </a>
+        </div>
+
         {/* Step Indicator Progress Bar */}
         <div className="mb-12">
           <div className="flex justify-between items-center relative mb-4">

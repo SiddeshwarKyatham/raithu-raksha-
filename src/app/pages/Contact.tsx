@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Mail, Phone, MapPin, Send, HelpCircle, ChevronDown } from "lucide-react";
+import { Mail, Phone, MapPin, Send, HelpCircle, ChevronDown, MessageSquare, ShieldCheck, Heart } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -20,7 +20,7 @@ export function Contact() {
   const faqs: FAQItem[] = [
     {
       question: "How do you verify the farmer cases?",
-      answer: "Every case undergoes a two-step validation: first, a digital screening of coordinates and regional crop health index records; followed by a physical, on-site visit by our verified local NGO partner team. The field coordinator validates government ID, land titles, and estimates damages before publishing the profile."
+      answer: "Every case undergoes a strict verification process: first, a digital screening of coordinates and weather logs; followed by a physical, on-site visit by our verified local NGO partner team. The field coordinator validates government ID, land titles, and estimates damages before publishing the profile."
     },
     {
       question: "Are there any platform or commission fees?",
@@ -28,7 +28,7 @@ export function Contact() {
     },
     {
       question: "How is the donation money paid to the farmers?",
-      answer: "To ensure full transparency and avoid misuse, the money is not sent as a raw cash transfer. Instead, our on-ground partner NGO purchases the items (e.g. seeds, fertilizers) directly from regional agricultural cooperative banks and delivers them to the farmer. Donors receive live photographic and invoice updates upon delivery."
+      answer: "To ensure full transparency and avoid misuse, the money is not sent as a raw cash transfer. Instead, our on-ground partner NGO purchases the items (e.g. seeds, fertilizers) directly from regional agricultural cooperatives and delivers them to the farmer. Donors receive live photographic and invoice updates upon delivery."
     },
     {
       question: "Can I volunteer as a field verification representative?",
@@ -64,17 +64,19 @@ export function Contact() {
   return (
     <div className="flex flex-col min-h-screen bg-background">
       
-      {/* Title Header */}
-      <section className="py-16 border-b border-border bg-muted/20">
-        <div className="container mx-auto px-4 md:px-6">
-          <div className="max-w-3xl">
-            <span className="bg-primary/10 border border-primary/20 text-primary px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider mb-4 inline-block">
-              Support Center
+      {/* Title Header Card */}
+      <section className="relative py-20 bg-card border-b border-border overflow-hidden">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-[#1a3627]/5 rounded-bl-full pointer-events-none blur-3xl" />
+        <div className="container mx-auto px-4 md:px-6 relative z-10">
+          <div className="max-w-3xl space-y-4">
+            <span className="bg-[#1a3627]/10 border border-[#1a3627]/20 text-[#1a3627] px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest inline-block">
+              ✉️ Support Center
             </span>
-            <h1 className="text-4xl md:text-5xl font-poppins font-bold text-foreground mb-4">
-              Get in Touch with Rythu Raksha
+            <h1 className="text-4xl md:text-5xl font-poppins font-bold text-foreground tracking-tight leading-tight">
+              Get in Touch with <br />
+              <span className="text-[#1a3627]">Rythu Raksha</span>
             </h1>
-            <p className="text-lg text-muted-foreground leading-relaxed">
+            <p className="text-base md:text-lg text-muted-foreground leading-relaxed max-w-2xl">
               Have questions about donating, verification, or reporting a case? Our team and NGO partners are here to assist.
             </p>
           </div>
@@ -82,50 +84,50 @@ export function Contact() {
       </section>
 
       {/* Main Support Grid */}
-      <section className="py-24 border-b border-border">
+      <section className="py-24">
         <div className="container mx-auto px-4 md:px-6">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 items-start">
             
             {/* Left: Contact Info & Form */}
             <div className="lg:col-span-7 space-y-12">
-              <div>
-                <h2 className="text-2xl font-poppins font-bold text-foreground mb-6">Send Us a Message</h2>
+              <div className="space-y-6">
+                <h2 className="text-2xl font-poppins font-bold text-foreground tracking-tight">Send Us a Message</h2>
                 
-                <form onSubmit={handleFormSubmit} className="space-y-5 bg-card border border-border p-6 sm:p-8 rounded-3xl shadow-sm">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                    <div>
-                      <label className="text-xs font-bold text-foreground mb-1.5 block">Full Name <span className="text-destructive">*</span></label>
+                <form onSubmit={handleFormSubmit} className="space-y-6 bg-card border border-border p-6 sm:p-8 rounded-[2rem] shadow-sm hover:shadow-md transition-shadow">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-foreground uppercase tracking-wider block">Full Name <span className="text-destructive">*</span></label>
                       <input 
                         type="text" 
                         name="name"
                         value={formData.name}
                         onChange={handleInputChange}
-                        placeholder="Enter name"
-                        className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm transition-all"
+                        placeholder="Dr./Mr./Ms. Name"
+                        className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1a3627] focus:border-transparent text-sm transition-all"
                         required
                       />
                     </div>
-                    <div>
-                      <label className="text-xs font-bold text-foreground mb-1.5 block">Email Address <span className="text-destructive">*</span></label>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-foreground uppercase tracking-wider block">Email Address <span className="text-destructive">*</span></label>
                       <input 
                         type="email" 
                         name="email"
                         value={formData.email}
                         onChange={handleInputChange}
-                        placeholder="name@example.com"
-                        className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm transition-all"
+                        placeholder="yourname@domain.com"
+                        className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1a3627] focus:border-transparent text-sm transition-all"
                         required
                       />
                     </div>
                   </div>
 
-                  <div>
-                    <label className="text-xs font-bold text-foreground mb-1.5 block">Category</label>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-foreground uppercase tracking-wider block">Category</label>
                     <select 
                       name="category"
                       value={formData.category}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm transition-all"
+                      className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1a3627] focus:border-transparent text-sm transition-all"
                     >
                       <option value="General Query">General Inquiry</option>
                       <option value="Donor Support">Donation Support</option>
@@ -134,53 +136,63 @@ export function Contact() {
                     </select>
                   </div>
 
-                  <div>
-                    <label className="text-xs font-bold text-foreground mb-1.5 block">Your Message <span className="text-destructive">*</span></label>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-foreground uppercase tracking-wider block">Your Message <span className="text-destructive">*</span></label>
                     <textarea 
                       name="message"
                       value={formData.message}
                       onChange={handleInputChange}
-                      placeholder="Write your details here..."
+                      placeholder="Type details about your inquiry here..."
                       rows={5}
-                      className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm transition-all leading-relaxed"
+                      className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1a3627] focus:border-transparent text-sm transition-all leading-relaxed"
                       required
                     />
                   </div>
 
-                  <button 
+                  <motion.button 
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.99 }}
                     type="submit" 
-                    className="w-full bg-primary text-primary-foreground py-3.5 rounded-xl font-bold text-sm hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 shadow-md"
+                    className="w-full bg-[#1a3627] text-white py-3.5 rounded-xl font-bold text-sm hover:bg-[#1a3627]/95 transition-colors flex items-center justify-center gap-2 shadow-md"
                   >
                     <Send className="w-4 h-4" /> Send Message
-                  </button>
+                  </motion.button>
                 </form>
               </div>
 
               {/* Support Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                <div className="border border-border bg-card p-6 rounded-2xl flex flex-col items-center text-center shadow-sm">
-                  <Phone className="w-8 h-8 text-primary mb-4" />
+                <div className="border border-border bg-[#1a3627]/5 p-6 rounded-2xl flex flex-col items-center text-center shadow-sm hover:shadow-md transition-shadow group">
+                  <div className="w-12 h-12 rounded-full bg-[#1a3627]/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                    <Phone className="w-6 h-6 text-[#1a3627]" />
+                  </div>
                   <h4 className="font-bold text-sm text-foreground mb-1 font-poppins">Call Support</h4>
-                  <p className="text-xs text-muted-foreground">+91 98765 43210</p>
+                  <p className="text-xs text-muted-foreground font-semibold">+91 70326 91531</p>
                 </div>
-                <div className="border border-border bg-card p-6 rounded-2xl flex flex-col items-center text-center shadow-sm">
-                  <Mail className="w-8 h-8 text-secondary mb-4" />
+                
+                <div className="border border-border bg-[#d4af37]/5 p-6 rounded-2xl flex flex-col items-center text-center shadow-sm hover:shadow-md transition-shadow group">
+                  <div className="w-12 h-12 rounded-full bg-[#d4af37]/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                    <Mail className="w-6 h-6 text-[#d4af37]" />
+                  </div>
                   <h4 className="font-bold text-sm text-foreground mb-1 font-poppins">Email Us</h4>
-                  <p className="text-xs text-muted-foreground">help@raithuraksha.org</p>
+                  <p className="text-xs text-muted-foreground font-semibold">support@rythuraksha.org</p>
                 </div>
-                <div className="border border-border bg-card p-6 rounded-2xl flex flex-col items-center text-center shadow-sm">
-                  <MapPin className="w-8 h-8 text-primary mb-4" />
+
+                <div className="border border-border bg-[#8B5A2B]/5 p-6 rounded-2xl flex flex-col items-center text-center shadow-sm hover:shadow-md transition-shadow group">
+                  <div className="w-12 h-12 rounded-full bg-[#8B5A2B]/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                    <MapPin className="w-6 h-6 text-[#8B5A2B]" />
+                  </div>
                   <h4 className="font-bold text-sm text-foreground mb-1 font-poppins">Head Office</h4>
-                  <p className="text-xs text-muted-foreground">Hyderabad, Telangana</p>
+                  <p className="text-xs text-muted-foreground font-semibold">Hyderabad, Telangana</p>
                 </div>
               </div>
             </div>
 
             {/* Right: FAQ Section */}
-            <div className="lg:col-span-5 space-y-6">
+            <div className="lg:col-span-5 space-y-6 lg:sticky lg:top-24">
               <div className="flex items-center gap-2 mb-6">
-                <HelpCircle className="w-6 h-6 text-primary" />
-                <h2 className="text-2xl font-poppins font-bold text-foreground">Frequently Asked FAQs</h2>
+                <HelpCircle className="w-6 h-6 text-[#1a3627]" />
+                <h2 className="text-2xl font-poppins font-bold text-foreground tracking-tight">Frequently Asked FAQs</h2>
               </div>
 
               <div className="space-y-4">
@@ -189,17 +201,19 @@ export function Contact() {
                   return (
                     <div 
                       key={idx} 
-                      className="border border-border bg-card rounded-2xl overflow-hidden shadow-sm transition-all"
+                      className={`border bg-card rounded-2xl overflow-hidden shadow-sm transition-all duration-300 ${
+                        isOpen ? "border-[#1a3627]" : "border-border"
+                      }`}
                     >
                       <button
                         type="button"
                         onClick={() => handleFAQToggle(idx)}
-                        className="w-full flex items-center justify-between p-5 text-left font-poppins font-bold text-sm text-foreground hover:bg-muted/30 transition-colors"
+                        className="w-full flex items-center justify-between p-5 text-left font-poppins font-bold text-sm text-foreground hover:bg-muted/20 transition-colors"
                       >
-                        <span>{faq.question}</span>
+                        <span className={isOpen ? "text-[#1a3627]" : "text-foreground"}>{faq.question}</span>
                         <ChevronDown 
                           className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform duration-300 ${
-                            isOpen ? "rotate-180" : ""
+                            isOpen ? "rotate-180 text-[#1a3627]" : ""
                           }`}
                         />
                       </button>
@@ -211,7 +225,7 @@ export function Contact() {
                             exit={{ height: 0, opacity: 0 }}
                             transition={{ duration: 0.25, ease: "easeInOut" }}
                           >
-                            <div className="p-5 pt-0 border-t border-border/50 text-xs text-muted-foreground leading-relaxed">
+                            <div className="p-5 pt-0 border-t border-border/50 text-xs md:text-sm text-muted-foreground leading-relaxed bg-muted/5">
                               {faq.answer}
                             </div>
                           </motion.div>

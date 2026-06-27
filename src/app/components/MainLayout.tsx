@@ -1,5 +1,5 @@
 import { Outlet, Link } from "react-router";
-import { Menu } from "lucide-react";
+import { Menu, Leaf, Mail, Award } from "lucide-react";
 import { useState } from "react";
 import { Toaster } from "sonner";
 import logo from "../../assets/logo.png";
@@ -14,11 +14,21 @@ export function MainLayout() {
       {/* Navbar */}
       <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
         <div className="container mx-auto px-4 md:px-6 h-20 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3 text-primary animate-pulse-none">
+          <Link to="/" className="flex items-center gap-3 animate-pulse-none">
             <img src={logo} alt="Rythu Raksha Logo" className="w-16 h-16 object-contain" />
-            <div className="flex flex-col">
-              <span className="font-poppins font-semibold text-xl tracking-tight leading-tight">Rythu Raksha</span>
-              <span className="text-xs text-muted-foreground hidden sm:inline">by Nava Nirman Foundation</span>
+            <div className="flex flex-col justify-center">
+              <div className="font-poppins font-bold text-2xl tracking-tight leading-none flex items-center">
+                <span className="text-[#1a3627]">Rythu</span>
+                <span className="text-[#8B5A2B] ml-1">Raksha</span>
+              </div>
+              <div className="flex items-center gap-1 mt-1 w-full">
+                <div className="h-[1px] bg-[#1a3627]/20 flex-1" />
+                <Leaf className="w-2.5 h-2.5 text-[#1a3627]/60 shrink-0" />
+                <div className="h-[1px] bg-[#1a3627]/20 flex-1" />
+              </div>
+              <span className="text-[8px] text-[#1a3627]/85 font-bold tracking-widest uppercase mt-0.5">
+                BY NAVA NIRMAN FOUNDATION
+              </span>
             </div>
           </Link>
           
@@ -67,15 +77,57 @@ export function MainLayout() {
         <div className="container mx-auto px-4 md:px-6 grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="flex flex-col gap-4">
             <Link to="/" className="flex items-center gap-2.5">
-              <img src={footerLogo} alt="Rythu Raksha Logo" className="w-24 h-24 object-contain" />
-              <div className="flex flex-col">
-                <span className="font-poppins font-semibold text-xl">Rythu Raksha</span>
-                <span className="text-xs text-primary-foreground/70">by Nava Nirman Foundation</span>
+              <img src={footerLogo} alt="Rythu Raksha Logo" className="w-20 h-20 object-contain" />
+              <div className="flex flex-col justify-center">
+                <div className="font-poppins font-bold text-2xl tracking-tight leading-none flex items-center">
+                  <span className="text-white">Rythu</span>
+                  <span className="text-[#d4af37] ml-1">Raksha</span>
+                </div>
+                <div className="flex items-center gap-1 mt-1 w-full">
+                  <div className="h-[1px] bg-white/20 flex-1" />
+                  <Leaf className="w-2.5 h-2.5 text-white/50 shrink-0" />
+                  <div className="h-[1px] bg-white/20 flex-1" />
+                </div>
+                <span className="text-[8px] text-white/80 font-bold tracking-widest uppercase mt-0.5">
+                  BY NAVA NIRMAN FOUNDATION
+                </span>
               </div>
             </Link>
             <p className="text-primary-foreground/80 text-sm">
               Connecting disaster-affected farmers with people willing to help through verified stories and transparent support.
             </p>
+            <div className="flex flex-col gap-2.5 text-xs font-semibold text-primary-foreground/95 mt-3">
+              <a 
+                href="https://wa.me/917032691531" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="hover:underline flex items-center gap-2 text-white/95"
+              >
+                <svg className="w-4 h-4 text-[#25D366] shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M12.004 2.001c-5.51 0-9.99 4.48-9.99 9.99 0 2.05.62 3.96 1.7 5.56L2.3 22l4.63-1.38c1.55.93 3.36 1.47 5.07 1.47 5.51 0 9.99-4.48 9.99-9.99 0-5.51-4.48-9.99-9.99-9.99zm5.55 14.16c-.23.65-1.34 1.22-1.85 1.28-.5.06-1 .28-3.23-.62-2.69-1.09-4.39-3.83-4.52-4.01-.13-.18-1.09-1.45-1.09-2.76 0-1.31.69-1.96.93-2.22.25-.26.54-.33.72-.33.18 0 .36.01.52.02.17.01.4.01.61.5.22.53.76 1.85.83 1.99.07.15.12.32.02.51-.1.2-.15.32-.3.49-.15.17-.32.39-.46.55-.16.18-.33.37-.14.7.19.33.85 1.41 1.83 2.29.98.88 1.8-1.18 2.13-1.34.33-.16.65-.12.87.1.22.22 1.41 1.41 1.65 1.65.24.24.4.36.4.52 0 .15-.09.84-.32 1.49z"/></svg>
+                <span>WhatsApp: +91 70326 91531</span>
+              </a>
+              <a 
+                href="mailto:support@rythuraksha.org" 
+                className="hover:underline flex items-center gap-2 bg-[#d4af37]/15 border border-[#d4af37]/35 text-[#d4af37] px-2.5 py-1 rounded-lg w-fit transition-colors shadow-sm font-poppins"
+              >
+                <Mail className="w-3.5 h-3.5 text-[#d4af37] shrink-0" />
+                <span>support@rythuraksha.org</span>
+              </a>
+            </div>
+            <div className="mt-6 pt-4 border-t border-white/10 w-full">
+              <a 
+                href="https://navanirmanfoundation.com" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="flex items-center justify-between bg-gradient-to-r from-[#d4af37]/10 via-[#d4af37]/5 to-transparent hover:from-[#d4af37]/20 border border-[#d4af37]/20 hover:border-[#d4af37]/60 rounded-2xl p-4 text-xs font-bold text-white transition-all duration-300 group shadow-md font-poppins"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Award className="w-4 h-4 text-[#d4af37] shrink-0" />
+                  <span className="tracking-wide">Learn More About Nava Nirman Foundation</span>
+                </div>
+                <span className="text-[#d4af37] group-hover:translate-x-1.5 transition-transform duration-300 font-bold text-sm">→</span>
+              </a>
+            </div>
           </div>
           <div>
             <h4 className="font-poppins font-semibold mb-4">Explore</h4>
