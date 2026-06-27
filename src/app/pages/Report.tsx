@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, CheckCircle2, ShieldCheck, MapPin, Sprout, Alert
 import { addFarmer, uploadToCloudinary } from "../utils/db";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "motion/react";
+import { LocationPicker } from "../components/LocationPicker";
 
 export function Report() {
   const navigate = useNavigate();
@@ -514,17 +515,13 @@ export function Report() {
                       />
                     </div>
                     <div className="md:col-span-2">
-                      <label className="text-sm font-semibold text-foreground mb-1.5 block">Field Location / Google Maps Link <span className="text-destructive">*</span></label>
-                      <input 
-                        type="text" 
-                        name="locationLink"
-                        value={formData.locationLink}
-                        onChange={handleInputChange}
-                        placeholder="Enter Google Maps location URL or GPS coordinates (e.g. https://maps.google.com/?q=...)" 
-                        className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-sm" 
-                        required 
+                      <label className="text-sm font-semibold text-foreground mb-3.5 block">Field Location (Live GPS & Interactive Map Pin) <span className="text-destructive">*</span></label>
+                      <LocationPicker 
+                        value={formData.locationLink} 
+                        onChange={(url) => setFormData(prev => ({ ...prev, locationLink: url }))}
+                        village={formData.village}
+                        district={formData.district}
                       />
-                      <p className="text-[10px] text-muted-foreground mt-1">Provide the exact location of the farm field (including farmer and field details) for NGO verification.</p>
                     </div>
                   </div>
                 </motion.div>

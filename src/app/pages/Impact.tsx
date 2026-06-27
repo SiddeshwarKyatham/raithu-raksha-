@@ -1,15 +1,26 @@
 import { motion } from "motion/react";
-import { Coins, HeartHandshake, MapPin, TrendingUp, Users, CheckCircle, ShieldCheck, Trophy, Sparkles } from "lucide-react";
+import { Coins, HeartHandshake, MapPin, Sprout, TrendingUp, Users, CheckCircle, ShieldCheck, Trophy, Sparkles, AlertCircle } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, Legend } from "recharts";
 import { Link } from "react-router";
 import { ImageWithFallback } from "../components/figma/ImageWithFallback";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { getDonations, getFarmers } from "../utils/db";
+
+const DISTRICT_COORDS: Record<string, [number, number]> = {
+  "Warangal": [17.9784, 79.5941],
+  "Nalgonda": [17.0575, 79.2684],
+  "Khammam": [17.2473, 80.1514],
+  "Mahabubnagar": [16.7367, 77.9889],
+  "Karimnagar": [18.4386, 79.1288],
+  "Siddipet": [18.1018, 78.8520],
+};
 
 export function Impact() {
   const [donations, setDonations] = useState<any[]>([]);
   const [farmers, setFarmers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [mapLoaded, setMapLoaded] = useState(false);
+  const mapRef = useRef<any>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -18,13 +29,152 @@ export function Impact() {
         setDonations(donationsData);
         setFarmers(farmersData);
         setLoading(false);
-      })
-      .catch(err => {
-        console.error("Error loading impact data:", err);
-        setLoading(false);
       });
   }, []);
-  
+
+  // Load Leaflet dynamically
+  useEffect(() => {
+    if (loading || farmers.length === 0) return;
+
+    const loadLeaflet = async () => {
+      // 1. Inject CSS
+      if (!document.getElementById("leaflet-css")) {
+        const link = document.createElement("link");
+        link.id = "leaflet-css";
+        link.rel = "stylesheet";
+        link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+        document.head.appendChild(link);
+      }
+
+      // 2. Inject Script
+      if (!document.getElementById("leaflet-js")) {
+        const script = document.createElement("script");
+        script.id = "leaflet-js";
+        script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+        script.async = true;
+        script.onload = () => setMapLoaded(true);
+        document.body.appendChild(script);
+      } else if ((window as any).L) {
+        setMapLoaded(true);
+      }
+
+      // 3. Inject marker animations and reset default Leaflet divIcon styles
+      if (!document.getElementById("leaflet-pulse-style")) {
+        const style = document.createElement("style");
+        style.id = "leaflet-pulse-style";
+        style.innerHTML = `
+          @keyframes pulse-ring {
+            0% { transform: scale(0.35); opacity: 1; }
+            80%, 100% { transform: scale(1.3); opacity: 0; }
+          }
+          .custom-leaflet-pulse {
+            background: transparent !important;
+            border: none !important;
+          }
+        `;
+        document.head.appendChild(style);
+      }
+    };
+
+    loadLeaflet();
+  }, [loading, farmers]);
+
+  // Initialize Map
+  useEffect(() => {
+    if (!mapLoaded || !farmers.length || mapRef.current) return;
+
+    const L = (window as any).L;
+    if (!L) return;
+
+    // Create Map centered in Telangana with strict bounds
+    const telanganaBounds = L.latLngBounds([15.5, 76.5], [20.1, 81.8]);
+    const map = L.map("impact-map", {
+      maxBounds: telanganaBounds,
+      maxBoundsViscosity: 1.0,
+      minZoom: 7.5,
+      maxZoom: 12
+    }).setView([17.9784, 79.5941], 8);
+    
+    mapRef.current = map;
+
+    // Add beautiful dark/light tile layer
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: "abcd",
+      maxZoom: 20
+    }).addTo(map);
+
+    // Fetch and highlight Telangana boundary GeoJSON outline
+    fetch("https://raw.githubusercontent.com/gpavanb1/Telangana-Visualisation/master/data/Telangana.geojson")
+      .then(res => res.json())
+      .then(data => {
+        L.geoJSON(data, {
+          style: {
+            color: "#2e7d32",      // forest green outline
+            weight: 3,             // bold line weight
+            opacity: 0.85,
+            fillColor: "#1b5e20",  // light inner tint
+            fillOpacity: 0.04
+          }
+        }).addTo(map);
+      })
+      .catch(err => console.error("Error fetching Telangana GeoJSON:", err));
+
+    // Render Custom Glowing Pulse Markers for each farmer case
+    farmers.forEach(farmer => {
+      const coords = DISTRICT_COORDS[farmer.district] || [17.9784, 79.5941];
+      // Add slight offset for overlapping locations so markers don't overlap completely
+      const latOffset = (Math.random() - 0.5) * 0.05;
+      const lngOffset = (Math.random() - 0.5) * 0.05;
+
+      const sproutIcon = L.divIcon({
+        className: "custom-leaflet-pulse",
+        html: `
+          <div style="position: relative; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px;">
+            <div style="position: absolute; width: 32px; height: 32px; background: rgba(34, 197, 94, 0.35); border-radius: 50%; animation: pulse-ring 1.8s cubic-bezier(0.215, 0.610, 0.355, 1) infinite;"></div>
+            <div style="position: relative; width: 22px; height: 22px; background: #166534; border: 2px solid #bbf7d0; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.35);">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#bbf7d0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-sprout">
+                <path d="M7 20h10"/>
+                <path d="M10 20c5.5-2.5 7-7.5 7-12"/>
+                <path d="M13 14c-2.5-2.5-7.5-2.5-7.5-2.5S5 17 7.5 19.5"/>
+                <path d="M17 8c2.5-2.5 7.5-2.5 7.5-2.5S23 11 20.5 13.5"/>
+              </svg>
+            </div>
+          </div>
+        `,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
+      });
+
+      const marker = L.marker([coords[0] + latOffset, coords[1] + lngOffset], { icon: sproutIcon }).addTo(map);
+      
+      const popupHtml = `
+        <div style="font-family: sans-serif; min-width: 180px;">
+          <h4 style="margin: 0 0 5px 0; font-size: 14px; font-weight: bold; color: #1a3627;">${farmer.name}</h4>
+          <p style="margin: 0 0 5px 0; font-size: 11px; color: #666;"><b>District:</b> ${farmer.district}</p>
+          <p style="margin: 0 0 5px 0; font-size: 11px; color: #666;"><b>Crop:</b> ${farmer.crop}</p>
+          <p style="margin: 0 0 5px 0; font-size: 11px; color: #666;"><b>Disaster:</b> ${farmer.disaster}</p>
+          <div style="margin: 8px 0; background: #eee; border-radius: 4px; height: 6px; overflow: hidden;">
+            <div style="background: #2e7d32; height: 6px; width: ${Math.min(100, (farmer.raised / farmer.goal) * 100)}%;"></div>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 10px; font-weight: bold; margin-bottom: 8px;">
+            <span>₹${farmer.raised.toLocaleString()} raised</span>
+            <span style="color: #2e7d32;">${Math.round((farmer.raised / farmer.goal) * 100)}%</span>
+          </div>
+          <a href="/farmers/${farmer.id}" style="display: block; text-align: center; background: #1a3627; color: white; padding: 6px; border-radius: 6px; font-size: 11px; text-decoration: none; font-weight: bold;">View Campaign</a>
+        </div>
+      `;
+      marker.bindPopup(popupHtml);
+    });
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, [mapLoaded, farmers]);
+
   // Calculate top donors (excluding Anonymous)
   const donorMap: Record<string, number> = {};
   donations.forEach(d => {
@@ -218,6 +368,35 @@ export function Impact() {
                 </div>
               </motion.div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Interactive GIS Map Section */}
+      {/* Interactive GIS Map Section - Highly Highlighted */}
+      <section className="py-20 border-b border-border bg-gradient-to-b from-background via-muted/30 to-background">
+        <div className="container mx-auto px-4 md:px-6">
+          <div className="text-center max-w-3xl mx-auto mb-12">
+            <span className="bg-primary/10 text-primary border border-primary/20 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider mb-3.5 inline-block">
+              Geographical Focus
+            </span>
+            <h2 className="text-4xl font-poppins font-extrabold text-foreground mb-4 tracking-tight">
+              Interactive Telangana Ground Relief Map
+            </h2>
+            <p className="text-muted-foreground text-base max-w-2xl mx-auto leading-relaxed">
+              Real-time regional distribution of verified recovery campaigns. Panning is restricted to Telangana state to showcase local grassroots initiatives. Click the glowing pulse circles to inspect campaign progress.
+            </p>
+          </div>
+          
+          <div className="relative rounded-3xl overflow-hidden shadow-2xl border-2 border-primary/15 bg-card p-3 max-w-5xl mx-auto transform hover:scale-[1.01] transition-transform duration-300">
+            <div id="impact-map" className="w-full h-[550px] rounded-2xl z-10" />
+            {!mapLoaded && (
+              <div className="absolute inset-0 bg-background/90 backdrop-blur-sm z-20 flex flex-col items-center justify-center">
+                <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
+                <p className="text-sm font-semibold text-foreground">Loading Telangana Ground Map...</p>
+                <p className="text-xs text-muted-foreground mt-1">Sourcing verified crop coordinates...</p>
+              </div>
+            )}
           </div>
         </div>
       </section>

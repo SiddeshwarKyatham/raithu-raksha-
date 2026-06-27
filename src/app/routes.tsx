@@ -8,6 +8,7 @@ import { About } from "./pages/About";
 import { Impact } from "./pages/Impact";
 import { Admin } from "./pages/Admin";
 import { Contact } from "./pages/Contact";
+import { FarmerVerify } from "./pages/FarmerVerify";
 
 export const router = createBrowserRouter([
   {
@@ -22,6 +23,7 @@ export const router = createBrowserRouter([
       { path: "impact", element: <Impact /> },
       { path: "admin", element: <Admin /> },
       { path: "contact", element: <Contact /> },
+      { path: "farmer/verify/:token", element: <FarmerVerify /> },
     ],
   },
 ]);

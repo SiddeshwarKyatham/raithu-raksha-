@@ -1,5 +1,5 @@
 import { useParams, Link } from "react-router";
-import { ShieldCheck, MapPin, Sprout, CheckCircle2, Heart, Share2, AlertTriangle, QrCode } from "lucide-react";
+import { ShieldCheck, MapPin, Sprout, CheckCircle2, Heart, Share2, AlertTriangle, QrCode, Download } from "lucide-react";
 import { ImageWithFallback } from "../components/figma/ImageWithFallback";
 import { motion } from "motion/react";
 import { useState, useEffect } from "react";
@@ -81,6 +81,89 @@ export function FarmerStory() {
       </div>
     );
   }
+
+  const handlePrintReceipt = () => {
+    const printWindow = window.open("", "_blank", "width=800,height=600");
+    if (!printWindow) {
+      toast.error("Popup blocked! Please allow popups to print/download the receipt.");
+      return;
+    }
+    const receiptHtml = `
+      <html>
+        <head>
+          <title>Rythu Raksha - Donation Receipt</title>
+          <style>
+            body { font-family: sans-serif; padding: 40px; color: #333; }
+            .receipt-container { max-width: 600px; margin: 0 auto; border: 1px solid #eaeaea; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+            .header { text-align: center; border-bottom: 2px solid #1a3627; padding-bottom: 20px; margin-bottom: 20px; }
+            .logo-text { font-size: 24px; font-weight: bold; color: #1a3627; }
+            .subtitle { font-size: 14px; color: #666; margin-top: 5px; }
+            .title { text-align: center; font-size: 20px; font-weight: bold; margin: 20px 0; color: #222; text-transform: uppercase; }
+            .row { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 14px; }
+            .label { color: #666; }
+            .val { font-weight: bold; color: #111; }
+            .amount { font-size: 22px; color: #1a3627; }
+            .message-box { background: #f4f6f4; border: 1px solid #1a36271a; padding: 15px; border-radius: 8px; font-style: italic; margin-top: 15px; font-size: 13px; }
+            .footer { text-align: center; font-size: 11px; color: #999; margin-top: 30px; border-top: 1px solid #eee; padding-top: 15px; }
+            @media print {
+              body { padding: 0; }
+              .receipt-container { border: none; box-shadow: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="receipt-container">
+            <div class="header">
+              <div class="logo-text">Rythu Raksha</div>
+              <div class="subtitle">Farmer Recovery Platform & NGO</div>
+            </div>
+            <div class="title">Donation Receipt</div>
+            <div class="row">
+              <span class="label">Date:</span>
+              <span class="val">${new Date().toLocaleDateString('en-IN', { dateStyle: 'long' })}</span>
+            </div>
+            <div class="row">
+              <span class="label">Transaction ID:</span>
+              <span class="val">RR-${Math.floor(100000 + Math.random() * 900000)}</span>
+            </div>
+            <div class="row">
+              <span class="label">Donor Name:</span>
+              <span class="val">${donorName || "Anonymous Supporter"}</span>
+            </div>
+            <div class="row">
+              <span class="label">Beneficiary:</span>
+              <span class="val">${farmer.name} (Age: ${farmer.age}, Crop: ${farmer.crop})</span>
+            </div>
+            <div class="row">
+              <span class="label">Location:</span>
+              <span class="val">${farmer.village}, ${farmer.district}</span>
+            </div>
+            <div class="row" style="margin-top: 20px; border-top: 1px dashed #ccc; padding-top: 15px;">
+              <span class="label" style="font-size: 16px; font-weight: bold;">Amount Paid:</span>
+              <span class="val amount">₹${Number(donationAmount).toLocaleString()}</span>
+            </div>
+            ${donorMessage ? `
+              <div class="message-box">
+                <strong>Message:</strong> "${donorMessage}"
+              </div>
+            ` : ''}
+            <div class="footer">
+              <p>This is a computer-generated receipt verified via Razorpay Secure Payment. Thank you for your support.</p>
+              <p>© ${new Date().getFullYear()} Rythu Raksha NGO. All rights reserved.</p>
+            </div>
+          </div>
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(function() { window.close(); }, 500);
+            }
+          </script>
+        </body>
+      </html>
+    `;
+    printWindow.document.write(receiptHtml);
+    printWindow.document.close();
+  };
 
   const handlePaymentStart = async () => {
     const amt = parseFloat(donationAmount);
@@ -504,22 +587,32 @@ export function FarmerStory() {
                   </div>
                 )}
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsDonating(false);
-                  setDonationStep(1);
-                  setDonorName("");
-                  setDonorMessage("");
-                  setVpa("");
-                  setCardNumber("");
-                  setCardExpiry("");
-                  setCardCvv("");
-                }}
-                className="w-full bg-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm hover:bg-primary/90 transition-colors"
-              >
-                Done
-              </button>
+
+              <div className="flex flex-col gap-2 w-full">
+                <button
+                  type="button"
+                  onClick={handlePrintReceipt}
+                  className="w-full bg-secondary text-secondary-foreground py-3 rounded-xl font-semibold text-sm hover:bg-secondary/90 transition-colors flex items-center justify-center gap-2 border border-border/10"
+                >
+                  <Download className="w-4 h-4" /> Print / Download Receipt
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsDonating(false);
+                    setDonationStep(1);
+                    setDonorName("");
+                    setDonorMessage("");
+                    setVpa("");
+                    setCardNumber("");
+                    setCardExpiry("");
+                    setCardCvv("");
+                  }}
+                  className="w-full bg-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm hover:bg-primary/90 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           )}
 

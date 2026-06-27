@@ -33,6 +33,16 @@ export interface Farmer {
   videoProof?: string;
   imageProofs?: string[];
   locationLink?: string;
+  status?: string;
+  verificationToken?: string;
+  tokenExpiry?: string;
+  tokenUsed?: boolean;
+  bankDetails?: {
+    accountName?: string;
+    accountNumber?: string;
+    ifsc?: string;
+    bankName?: string;
+  };
 }
 
 export interface Donation {
@@ -136,3 +146,39 @@ export function getOptimizedVideoUrl(url: string): string {
   if (url.includes("q_auto")) return url;
   return url.replace("/video/upload/", "/video/upload/q_auto,f_auto/");
 }
+
+export async function getFarmerByToken(token: string): Promise<Farmer> {
+  const res = await fetch(`/api/farmer-by-token?token=${encodeURIComponent(token)}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || err.message || "Failed to fetch verification info");
+  }
+  return res.json();
+}
+
+export async function submitFarmerVerification(token: string, data: Partial<Farmer>): Promise<{ success: boolean }> {
+  const res = await fetch(`/api/farmer-by-token?token=${encodeURIComponent(token)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || err.message || "Failed to submit verification");
+  }
+  return res.json();
+}
+
+export async function resendVerificationLink(farmerId: number): Promise<{ success: boolean; message: string }> {
+  const res = await fetch('/api/resend-verification', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ farmerId })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || err.message || "Failed to resend link");
+  }
+  return res.json();
+}
+

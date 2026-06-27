@@ -225,6 +225,23 @@ export function Home() {
         </div>
       </section>
 
+      {/* Callout Quote Banner */}
+      <section className="py-20 bg-primary text-primary-foreground border-y border-primary/20">
+        <div className="container mx-auto px-4 md:px-6 flex flex-col items-center gap-4 text-center">
+          <p className="text-xl md:text-3xl font-bold font-poppins max-w-3xl leading-snug">
+            Together, We Protect Farmers. Together, We Build Hope.
+          </p>
+          <div className="flex items-center gap-4 w-full max-w-md justify-center">
+            <div className="h-px bg-primary-foreground/30 flex-1" />
+            <span className="text-secondary text-xl">💚</span>
+            <div className="h-px bg-primary-foreground/30 flex-1" />
+          </div>
+          <p className="text-sm font-semibold tracking-widest text-secondary uppercase">
+            A Crowdfunding Platform for Farmers
+          </p>
+        </div>
+      </section>
+
       {/* How We Verify */}
       <section className="py-24 bg-background border-y border-border">
         <div className="container mx-auto px-4 md:px-6">

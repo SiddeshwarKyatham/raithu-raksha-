@@ -166,8 +166,22 @@ export async function initDB() {
         requested_amount INT DEFAULT 0,
         video_proof TEXT,
         image_proofs JSONB DEFAULT '[]'::jsonb,
-        location_link TEXT
+        location_link TEXT,
+        status VARCHAR(50) DEFAULT 'NGO Submitted',
+        verification_token VARCHAR(255) UNIQUE,
+        token_expiry TIMESTAMP,
+        token_used BOOLEAN DEFAULT FALSE,
+        bank_details JSONB DEFAULT '{}'::jsonb
       )
+    `);
+
+    // Run migrations to alter existing table if columns are missing
+    await client.query(`
+      ALTER TABLE farmers ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'NGO Submitted';
+      ALTER TABLE farmers ADD COLUMN IF NOT EXISTS verification_token VARCHAR(255) UNIQUE;
+      ALTER TABLE farmers ADD COLUMN IF NOT EXISTS token_expiry TIMESTAMP;
+      ALTER TABLE farmers ADD COLUMN IF NOT EXISTS token_used BOOLEAN DEFAULT FALSE;
+      ALTER TABLE farmers ADD COLUMN IF NOT EXISTS bank_details JSONB DEFAULT '{}'::jsonb;
     `);
 
     // Create Donations Table
@@ -189,12 +203,13 @@ export async function initDB() {
       console.log("Seeding initial farmers into PostgreSQL...");
       for (const f of DEFAULT_FARMERS) {
         await client.query(`
-          INSERT INTO farmers (name, age, district, village, crop, disaster, goal, raised, land_area, damage, image, story, breakdown, gallery, timeline, verified, farmer_phone, requested_amount, video_proof, image_proofs, location_link)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+          INSERT INTO farmers (name, age, district, village, crop, disaster, goal, raised, land_area, damage, image, story, breakdown, gallery, timeline, verified, farmer_phone, requested_amount, video_proof, image_proofs, location_link, status)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
         `, [
           f.name, f.age, f.district, f.village, f.crop, f.disaster, f.goal, f.raised, f.landArea, f.damage, f.image, f.story,
           JSON.stringify(f.breakdown), JSON.stringify(f.gallery), JSON.stringify(f.timeline), f.verified,
-          "9876543210", f.goal, null, JSON.stringify([]), `https://maps.google.com/?q=${encodeURIComponent(f.village + ", " + f.district)}`
+          "9876543210", f.goal, null, JSON.stringify([]), `https://maps.google.com/?q=${encodeURIComponent(f.village + ", " + f.district)}`,
+          f.verified ? 'Fundraising' : 'NGO Submitted'
         ]);
       }
       

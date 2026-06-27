@@ -35,7 +35,12 @@ const mapFarmerRow = (row: any) => ({
   requestedAmount: row.requested_amount,
   videoProof: row.video_proof,
   imageProofs: row.image_proofs,
-  locationLink: row.location_link
+  locationLink: row.location_link,
+  status: row.status,
+  verificationToken: row.verification_token,
+  tokenExpiry: row.token_expiry,
+  tokenUsed: row.token_used,
+  bankDetails: row.bank_details
 });
 
 export default async function handler(req: ExtendedRequest, res: ExtendedResponse) {
@@ -94,7 +99,7 @@ export default async function handler(req: ExtendedRequest, res: ExtendedRespons
       }
 
       const { rows } = await pool.query(
-        'UPDATE farmers SET verified = true, goal = $1, story = $2, timeline = $3, breakdown = $4 WHERE id = $5 RETURNING *',
+        "UPDATE farmers SET verified = true, status = 'Fundraising', goal = $1, story = $2, timeline = $3, breakdown = $4 WHERE id = $5 RETURNING *",
         [goalVal, storyVal, JSON.stringify(timeline), breakdownVal, farmerId]
       );
 

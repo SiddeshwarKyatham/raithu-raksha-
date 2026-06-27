@@ -1,6 +1,8 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 import crypto from 'crypto';
+import Razorpay from 'razorpay';
 import { pool } from './db.js';
+import { sendWhatsAppMessage, sendEmailReceipt } from './notification-helper.js';
 
 interface ExtendedRequest extends IncomingMessage {
   query: Record<string, string | string[]>;
@@ -35,7 +37,10 @@ const mapFarmerRow = (row: any) => ({
   farmerPhone: row.farmer_phone,
   requestedAmount: row.requested_amount,
   videoProof: row.video_proof,
-  imageProofs: row.image_proofs
+  imageProofs: row.image_proofs,
+  locationLink: row.location_link,
+  status: row.status,
+  bankDetails: row.bank_details
 });
 
 export default async function handler(req: ExtendedRequest, res: ExtendedResponse) {
@@ -62,7 +67,8 @@ export default async function handler(req: ExtendedRequest, res: ExtendedRespons
       farmerId,
       amount,
       donorName,
-      donorMessage
+      donorMessage,
+      donorEmailInput // Fallback if input directly by client
     } = req.body || {};
 
     // 1. Missing fields check
@@ -76,21 +82,25 @@ export default async function handler(req: ExtendedRequest, res: ExtendedRespons
       return;
     }
 
+    const keyId = process.env.RAZORPAY_KEY_ID;
     const keySecret = process.env.RAZORPAY_KEY_SECRET;
     if (!keySecret) {
       res.status(500).json({ error: "Razorpay Secret Key is not configured on the server." });
       return;
     }
 
-    // 2. Algorithm signature validation
-    const hmac = crypto.createHmac('sha256', keySecret);
-    hmac.update(`${razorpay_order_id}|${razorpay_payment_id}`);
-    const generatedSignature = hmac.digest('hex');
+    // 2. Algorithm signature validation (skip if simulated mock checkout)
+    const isMock = razorpay_payment_id.startsWith('pay_mock_');
+    if (!isMock) {
+      const hmac = crypto.createHmac('sha256', keySecret);
+      hmac.update(`${razorpay_order_id}|${razorpay_payment_id}`);
+      const generatedSignature = hmac.digest('hex');
 
-    if (generatedSignature !== razorpay_signature) {
-      console.warn("Razorpay signature verification failed!");
-      res.status(400).json({ error: "Payment verification failed: Signature mismatch." });
-      return;
+      if (generatedSignature !== razorpay_signature) {
+        console.warn("Razorpay signature verification failed!");
+        res.status(400).json({ error: "Payment verification failed: Signature mismatch." });
+        return;
+      }
     }
 
     // 3. Signature matched! Save donation and update farmer progress in database
@@ -98,6 +108,26 @@ export default async function handler(req: ExtendedRequest, res: ExtendedRespons
     if (isNaN(amountInRupees) || amountInRupees <= 0) {
       res.status(400).json({ error: "Invalid donation amount." });
       return;
+    }
+
+    // Fetch verified details from Razorpay API
+    let verifiedEmail = donorEmailInput || "donor@example.com";
+    let verifiedContact = "";
+
+    if (!isMock && keyId && keySecret) {
+      try {
+        const razorpay = new Razorpay({
+          key_id: keyId,
+          key_secret: keySecret,
+        });
+        const paymentInfo = await razorpay.payments.fetch(razorpay_payment_id);
+        if (paymentInfo) {
+          verifiedEmail = paymentInfo.email || verifiedEmail;
+          verifiedContact = paymentInfo.contact || verifiedContact;
+        }
+      } catch (fetchError) {
+        console.warn("Could not fetch payment info from Razorpay API (using fallbacks):", fetchError);
+      }
     }
 
     const client = await pool.connect();
@@ -134,13 +164,15 @@ export default async function handler(req: ExtendedRequest, res: ExtendedRespons
       // Calculate and update raised funds
       const newRaised = Math.min(farmer.goal, farmer.raised + amountInRupees);
       let timeline = farmer.timeline;
+      let newStatus = farmer.status || 'Fundraising';
 
       if (newRaised >= farmer.goal) {
+        newStatus = 'Fully Funded';
         const activeIndex = timeline.findIndex((t: any) => t.status === "active");
         if (activeIndex !== -1) {
           timeline[activeIndex].status = "completed";
         }
-        const fundraisingIndex = timeline.findIndex((t: any) => t.title === "Fundraising");
+        const fundraisingIndex = timeline.findIndex((t: any) => t.title === "Fundraising" || t.title === "Fully Funded");
         if (fundraisingIndex !== -1) {
           timeline[fundraisingIndex].title = "Fully Funded";
           timeline[fundraisingIndex].description = "Recovery funds fully secured. Implementation beginning.";
@@ -150,16 +182,36 @@ export default async function handler(req: ExtendedRequest, res: ExtendedRespons
 
       const updateRes = await client.query(`
         UPDATE farmers 
-        SET raised = $1, timeline = $2 
-        WHERE id = $3 
+        SET raised = $1, timeline = $2, status = $3
+        WHERE id = $4
         RETURNING *
-      `, [newRaised, JSON.stringify(timeline), farmerId]);
+      `, [newRaised, JSON.stringify(timeline), newStatus, farmerId]);
 
       await client.query('COMMIT');
 
+      const updatedFarmer = mapFarmerRow(updateRes.rows[0]);
+
+      // 4. Send Notifications (Email Receipt & WhatsApp Thank You)
+      const dName = donorName || "Anonymous Supporter";
+
+      // Send Resend Email Receipt
+      if (verifiedEmail) {
+        await sendEmailReceipt(verifiedEmail, dName, amountInRupees, razorpay_payment_id, farmer.name);
+      }
+
+      // Send WhatsApp thank-you message to donor (if contact number is available)
+      if (verifiedContact) {
+        await sendWhatsAppMessage(verifiedContact, "donor_thank_you", [
+          dName,
+          `₹${amountInRupees}`,
+          razorpay_payment_id,
+          farmer.name
+        ]);
+      }
+
       res.status(200).json({
         success: true,
-        farmer: mapFarmerRow(updateRes.rows[0])
+        farmer: updatedFarmer
       });
 
     } catch (dbError: any) {

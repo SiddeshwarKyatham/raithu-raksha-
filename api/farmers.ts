@@ -1,5 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'http';
+import crypto from 'crypto';
 import { pool, initDB } from './db.js';
+import { sendWhatsAppMessage } from './notification-helper.js';
 
 interface ExtendedRequest extends IncomingMessage {
   query: Record<string, string | string[]>;
@@ -35,7 +37,12 @@ const mapFarmerRow = (row: any) => ({
   requestedAmount: row.requested_amount,
   videoProof: row.video_proof,
   imageProofs: row.image_proofs,
-  locationLink: row.location_link
+  locationLink: row.location_link,
+  status: row.status,
+  verificationToken: row.verification_token,
+  tokenExpiry: row.token_expiry,
+  tokenUsed: row.token_used,
+  bankDetails: row.bank_details
 });
 
 export default async function handler(req: ExtendedRequest, res: ExtendedResponse) {
@@ -72,18 +79,34 @@ export default async function handler(req: ExtendedRequest, res: ExtendedRespons
         "https://images.unsplash.com/photo-1681226298721-88cdb4096e5f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxpbmRpYW4lMjBhZ3JpY3VsdHVyZSUyMGZpZWxkc3xlbnwxfHx8fDE3ODE1NDcyODh8MA&ixlib=rb-4.1.0&q=80&w=1080"
       ];
 
+      // Generate secure verification token and 24 hours expiry
+      const token = crypto.randomBytes(32).toString('hex');
+      const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
       const { rows } = await pool.query(`
-        INSERT INTO farmers (name, age, district, village, crop, disaster, goal, raised, land_area, damage, image, story, breakdown, gallery, timeline, verified, farmer_phone, requested_amount, video_proof, image_proofs, location_link)
-        VALUES ($1, $2, $3, $4, $5, $6, 0, 0, $7, $8, $9, $10, $11, $12, $13, false, $14, $15, $16, $17, $18)
+        INSERT INTO farmers (name, age, district, village, crop, disaster, goal, raised, land_area, damage, image, story, breakdown, gallery, timeline, verified, farmer_phone, requested_amount, video_proof, image_proofs, location_link, status, verification_token, token_expiry, token_used)
+        VALUES ($1, $2, $3, $4, $5, $6, 0, 0, $7, $8, $9, $10, $11, $12, $13, false, $14, $15, $16, $17, $18, 'Farmer Contact Pending', $19, $20, false)
         RETURNING *
       `, [
         f.name, f.age, f.district, f.village, f.crop, f.disaster, f.landArea, f.damage, f.image, f.story,
         JSON.stringify(f.breakdown), JSON.stringify(gallery), JSON.stringify(timeline),
         f.farmerPhone || "", f.requestedAmount || 0, f.videoProof || null, JSON.stringify(f.imageProofs || []),
-        f.locationLink || ""
+        f.locationLink || "", token, expiry
       ]);
 
-      res.status(201).json(mapFarmerRow(rows[0]));
+      const insertedFarmer = mapFarmerRow(rows[0]);
+
+      // Construct verification link
+      const protocol = req.headers['x-forwarded-proto'] || 'http';
+      const host = req.headers.host || 'localhost:5173';
+      const verificationLink = `${protocol}://${host}/farmer/verify/${token}`;
+
+      // Send WhatsApp utility message to the farmer
+      if (f.farmerPhone) {
+        await sendWhatsAppMessage(f.farmerPhone, "farmer_verification", [f.name, verificationLink]);
+      }
+
+      res.status(201).json(insertedFarmer);
       return;
     }
 
